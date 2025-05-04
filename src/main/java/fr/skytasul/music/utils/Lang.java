@@ -56,6 +56,48 @@ public class Lang{
 	public static String RADIO = ChatColor.DARK_AQUA + "Radio";
 	public static String UNAVAILABLE_RADIO = ChatColor.RED + "This action is unavailable while listening to the radio.";
 	public static String NONE = ChatColor.RED + "none";
+	public static String TOGGLE_SHUFFLE_ON = "§eShuffle enabled.";
+	public static String TOGGLE_SHUFFLE_OFF = "§eShuffle disabled.";
+	public static String TOGGLE_PARTICLES_ON = "§eParticles enabled.";
+	public static String TOGGLE_PARTICLES_OFF = "§eParticles disabled.";
+	public static String TOGGLE_REPEAT_ON = "§eRepeat enabled.";
+	public static String TOGGLE_REPEAT_OFF = "§eRepeat disabled.";
+	public static String PLAYER_VOLUME = "§bYour player volume is currently set to {VOLUME}%";
+	public static String PLAYER_VOLUME_CHANGED = "§bPlayer volume set to {VOLUME}%";
+	public static String DEFAULT_PLAYLIST_EMPTY = "§cThe default server playlist is currently empty.";
+	public static String PLAYLIST_RESET_SUCCESS = "§aYour playlist has been reset to the server default.";
+	public static String DEFAULT_PLAYLIST_LIST_HEADER = "§6--- Default Playlist Songs ---";
+	public static String DEFAULT_PLAYLIST_LIST_EMPTY = "§eThe default playlist is empty.";
+	public static String DEFAULT_PLAYLIST_LIST_ENTRY = "§e- §7{SONG_NAME}";
+	public static String DEFAULT_PLAYLIST_ADD_SUCCESS = "§aSong '§e{SONG_NAME}§a' added to the default playlist.";
+	public static String DEFAULT_PLAYLIST_ADD_FAIL_EXISTS = "§cSong '§e{SONG_NAME}§c' is already in the default playlist.";
+	public static String DEFAULT_PLAYLIST_ADD_FAIL_INVALID = "§cSong '§e{SONG_NAME}§c' is not a valid song.";
+	public static String DEFAULT_PLAYLIST_REMOVE_SUCCESS = "§aSong '§e{SONG_NAME}§a' removed from the default playlist.";
+	public static String DEFAULT_PLAYLIST_REMOVE_FAIL_NOT_FOUND = "§cSong '§e{SONG_NAME}§c' is not in the default playlist.";
+	public static String DEFAULT_PLAYLIST_SET_SUCCESS = "§aDefault playlist set to contain {COUNT} songs.";
+	public static String DEFAULT_PLAYLIST_SET_FAIL_INVALID = "§cSome songs were invalid and not added: {INVALID_SONGS}";
+	public static String DEFAULT_PLAYLIST_CLEAR_SUCCESS = "§aDefault playlist cleared.";
+	public static String DEFAULT_PLAYLIST_SAVE_ERROR = "§cAn error occurred while saving the default playlist file.";
+	public static String RESET_ALL_SUCCESS = "§aReset playlists for {COUNT} online players to the server default.";
+	public static String RESET_ALL_FAIL_EMPTY = "§cCannot reset all playlists because the default playlist is empty.";
+	public static String PLAYLIST_RESET_NOTIFICATION = "§eYour playlist has been reset to the server default by an administrator.";
+	public static String NOPERM = ChatColor.RED + "You do not have permission to do that.";
+
+	// Added keys for directory playlists
+	public static String LOOSE_NBS_FILES_WARNING = "§eWarning: Found .nbs files directly in the 'songs' folder. These files were ignored. Please place songs inside sub-directories (playlists): {FILES}";
+	public static String PLAYLIST_ITEM_LORE_INFO = "§7Contains {COUNT} songs";
+	public static String PLAYLIST_ITEM_LORE_ACTION = "§eLeft-click to play randomly";
+	public static String NOW_PLAYING_RANDOM_FROM = "§aNow randomly playing songs from playlist: §e{PLAYLIST}";
+
+	// Added keys for GUI revamp and CLI changes (edit3)
+	public static String GUI_BACK_BUTTON = "§cBack";
+	public static String GUI_PLAYLIST_ITEM_NAME = "§b[{ID}] {NAME}";
+	public static String GUI_PLAYLIST_ITEM_LORE_ACTION = "§eLeft-click to view songs"; // Replaces old PLAYLIST_ITEM_LORE_ACTION
+	public static String GUI_SONG_ITEM_NAME = "§e[{SUB_ID}] {NAME}";
+	public static String CLI_PLAY_USAGE = "§cUsage: /amusic play <player> <list_id> <song_id>";
+	public static String CLI_PLAY_INVALID_LIST_ID = "§cInvalid List ID: {ID}. Must be between 1 and {MAX}";
+	public static String CLI_PLAY_INVALID_SUB_ID = "§cInvalid Song ID: {ID} for playlist '{PLAYLIST}'. Must be between 1 and {MAX}";
+	public static String CLI_PLAY_SUCCESS = "§aPlaying song '§e{SONG}§a' for player '§e{PLAYER}§a'.";
 
 	public static void saveFile(YamlConfiguration cfg, File file) throws ReflectiveOperationException, IOException {
 		for (Field f : Lang.class.getDeclaredFields()){

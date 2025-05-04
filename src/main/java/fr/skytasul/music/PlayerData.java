@@ -17,6 +17,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerQuitEvent;
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class PlayerData implements Listener{
 
@@ -52,6 +53,15 @@ public class PlayerData implements Listener{
 		setVolume(defaults.getVolume());
 		setParticles(defaults.hasParticles());
 		setRepeat(defaults.isRepeatEnabled());
+
+		// Added: Set default favorites for new players
+		Playlist globalDefaultPlaylist = JukeBox.getDefaultPlaylist();
+		if (this.created && globalDefaultPlaylist != null && !globalDefaultPlaylist.getSongList().isEmpty()) {
+			List<Song> defaultSongsCopy = new ArrayList<>(globalDefaultPlaylist.getSongList());
+			if (!defaultSongsCopy.isEmpty()) {
+				this.favorites = new Playlist(defaultSongsCopy.toArray(new Song[0]));
+			}
+		}
 	}
 
 	@EventHandler
@@ -265,7 +275,10 @@ public class PlayerData implements Listener{
 		this.listening = list;
 		if (linked != null) {
 			linked.playlistItem();
-			linked.setSongsPage(p);
+			Player player = getPlayer();
+			if (player != null) {
+				linked.setPlaylistListPage(player);
+			}
 		}
 		if (!play || getPlayer() == null) return;
 		switch (listening){
@@ -367,7 +380,6 @@ public class PlayerData implements Listener{
 		JukeBox.sendMessage(getPlayer(), Lang.MUSIC_PLAYING + " " + JukeBox.getSongName(songPlayer.getSong()));
 	}
 
-
 	public UUID getID(){
 		return id;
 	}
@@ -435,7 +447,16 @@ public class PlayerData implements Listener{
 	}
 
 	public void setFavorites(Song... songs) {
-		favorites = new Playlist(songs);
+		if (songs == null || songs.length == 0) {
+			this.favorites = null;
+		} else {
+			List<Song> validSongs = Arrays.stream(songs).filter(Objects::nonNull).collect(Collectors.toList());
+			if (!validSongs.isEmpty()) {
+				this.favorites = new Playlist(validSongs.toArray(new Song[0]));
+			} else {
+				this.favorites = null;
+			}
+		}
 	}
 
 	public boolean isDefault(PlayerData base){
@@ -499,6 +520,38 @@ public class PlayerData implements Listener{
 		if (JukeBox.autoJoin) pdata.setJoinMusic(true);
 
 		return pdata;
+	}
+
+	// Added method to play a directory playlist randomly
+	// Modified signature to accept List<Song> for pre-shuffling
+	public void playDirectoryPlaylist(List<Song> songsToPlay, String directoryName) {
+		stopPlaying(false); // Stop any current music
+		if (songsToPlay == null || songsToPlay.isEmpty()) {
+			JukeBox.sendMessage(getPlayer(), "§cCannot play '§e" + directoryName + "§c': Playlist is empty or invalid.");
+			return;
+		}
+		// --- Key Change: Shuffle the list before creating the Playlist object ---
+		List<Song> shuffledSongs = new ArrayList<>(songsToPlay); // Create mutable copy
+		Collections.shuffle(shuffledSongs); // Shuffle the copy
+		Playlist playlistToPlay = new Playlist(shuffledSongs.toArray(new Song[0])); // Create Playlist from shuffled list
+		// --- End Key Change ---
+		this.listening = Playlists.PLAYLIST; // Set listening type, maybe a new type later?
+		// Maybe store currentDirectoryPlaylistName here if needed
+		songPlayer = new CustomSongPlayer(playlistToPlay);
+		songPlayer.setParticlesEnabled(particles);
+		songPlayer.getFadeIn().setFadeDuration(JukeBox.fadeInDuration);
+		if (JukeBox.fadeInDuration != 0) songPlayer.getFadeIn().setType(FadeType.LINEAR);
+		songPlayer.getFadeOut().setFadeDuration(JukeBox.fadeOutDuration);
+		if (JukeBox.fadeOutDuration != 0) songPlayer.getFadeOut().setType(FadeType.LINEAR);
+		songPlayer.setAutoDestroy(true);
+		songPlayer.addPlayer(getPlayer());
+		// Keep setRandom(true) potentially for NoteBlockAPI internal logic if needed, main shuffle is done
+		songPlayer.setRandom(true);
+		songPlayer.setRepeatMode(repeat ? RepeatMode.ONE : RepeatMode.ALL);
+		songPlayer.setPlaying(true); // Start playback
+		if (JukeBox.getInstance().stopVanillaMusic != null) JukeBox.getInstance().stopVanillaMusic.accept(p);
+		JukeBox.sendMessage(getPlayer(), Lang.NOW_PLAYING_RANDOM_FROM.replace("{PLAYLIST}", directoryName));
+		if (linked != null) linked.playingStarted(); // Update GUI state if open
 	}
 
 }

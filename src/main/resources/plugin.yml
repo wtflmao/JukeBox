@@ -63,5 +63,14 @@ permissions:
     description: Give access to /adminmusic
     default: op
   music.adminItem:
-    description: Changes item format
+    description: Uses the admin song item format
+    default: op
+  music.command.resetplaylist:
+    description: Allows players to reset their playlist to the server default.
+    default: true
+  music.admin.setdefaultplaylist:
+    description: Allows admins to modify the default server playlist.
+    default: op
+  music.admin.resetallplaylists:
+    description: Allows admins to reset all online players' playlists to the server default.
     default: op

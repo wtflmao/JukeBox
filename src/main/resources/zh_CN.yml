@@ -6,8 +6,8 @@ RELOAD_MUSIC: §a红石音乐已重新加载.
 INV_NAME: §d§l红石音乐
 TOGGLE_PLAYING: §6暂停/播放
 VOLUME: '§9当前音量 : §b'
-RIGHT_CLICK: §e右击：减少10%音量
-LEFT_CLICK: §e点击：增加10%音量
+RIGHT_CLICK: '§e右击：减少10%音量'
+LEFT_CLICK: '§e点击：增加10%音量'
 RANDOM_MUSIC: §3随机播放音乐
 STOP: §c停止音乐播放
 MUSIC_STOPPED: §a您停止了音乐的播放。
@@ -42,3 +42,44 @@ RADIO: §3电台
 UNAVAILABLE_RADIO: §c收听电台时你不能这么做。
 NONE: §c无
 # Translated by Mr_Liu | Updated by qsefthuopq
+
+NOPERM: '§c你没有权限执行此操作。'
+TOGGLE_SHUFFLE_ON: '§e随机播放已启用。'
+TOGGLE_SHUFFLE_OFF: '§e随机播放已禁用。'
+TOGGLE_PARTICLES_ON: '§e粒子效果已启用。'
+TOGGLE_PARTICLES_OFF: '§e粒子效果已禁用。'
+TOGGLE_REPEAT_ON: '§e单曲循环已启用。'
+TOGGLE_REPEAT_OFF: '§e单曲循环已禁用。'
+PLAYER_VOLUME: '§b你的播放音量当前为 {VOLUME}%'
+PLAYER_VOLUME_CHANGED: '§b播放音量已设为 {VOLUME}%'
+# 添加默认播放列表功能的翻译
+DEFAULT_PLAYLIST_EMPTY: '§c服务器默认播放列表当前为空。'
+PLAYLIST_RESET_SUCCESS: '§a你的播放列表已重置为服务器默认设置。'
+DEFAULT_PLAYLIST_LIST_HEADER: '§6--- 默认播放列表歌曲 ---'
+DEFAULT_PLAYLIST_LIST_EMPTY: '§e默认播放列表为空。'
+DEFAULT_PLAYLIST_LIST_ENTRY: '§e- §7{SONG_NAME}'
+DEFAULT_PLAYLIST_ADD_SUCCESS: '§a歌曲 §e{SONG_NAME}§a 已添加到默认播放列表。'
+DEFAULT_PLAYLIST_ADD_FAIL_EXISTS: '§c歌曲 §e{SONG_NAME}§c 已存在于默认播放列表中。'
+DEFAULT_PLAYLIST_ADD_FAIL_INVALID: '§c歌曲 §e{SONG_NAME}§c 不是有效的歌曲。'
+DEFAULT_PLAYLIST_REMOVE_SUCCESS: '§a歌曲 §e{SONG_NAME}§a 已从默认播放列表移除。'
+DEFAULT_PLAYLIST_REMOVE_FAIL_NOT_FOUND: '§c歌曲 §e{SONG_NAME}§c 不在默认播放列表中。'
+DEFAULT_PLAYLIST_SET_SUCCESS: '§a默认播放列表已设置为包含 {COUNT} 首歌曲。'
+DEFAULT_PLAYLIST_SET_FAIL_INVALID: '§c部分歌曲无效，未被添加: {INVALID_SONGS}'
+DEFAULT_PLAYLIST_CLEAR_SUCCESS: '§a默认播放列表已清空。'
+DEFAULT_PLAYLIST_SAVE_ERROR: '§c保存默认播放列表文件时出错。'
+RESET_ALL_SUCCESS: '§a已将 {COUNT} 名在线玩家的播放列表重置为服务器默认设置。'
+RESET_ALL_FAIL_EMPTY: '§c无法重置所有播放列表，因为默认播放列表为空。'
+PLAYLIST_RESET_NOTIFICATION: '§e你的播放列表已被管理员重置为服务器默认设置。'
+LOOSE_NBS_FILES_WARNING: '§e警告: 在 songs 文件夹根目录发现 .nbs 文件。这些文件已被忽略。请将歌曲放入子目录（即播放列表）中: {FILES}'
+PLAYLIST_ITEM_LORE_INFO: '§7包含 {COUNT} 首歌曲'
+PLAYLIST_ITEM_LORE_ACTION: '§e左键点击随机播放'
+NOW_PLAYING_RANDOM_FROM: '§a正在随机播放来自歌单 §e{PLAYLIST} §a的歌曲'
+GUI_BACK_BUTTON: '§c返回'
+GUI_PLAYLIST_ITEM_NAME: '§b[{ID}] {NAME}'
+GUI_PLAYLIST_ITEM_LORE_ACTION: '§e左键查看歌曲列表'
+GUI_SONG_ITEM_NAME: '§e[{SUB_ID}] {NAME}'
+CLI_PLAY_USAGE: '§c用法: /amusic play <玩家> <列表ID> <歌曲ID>'
+CLI_PLAY_INVALID_LIST_ID: '§c无效的列表 ID: {ID}。必须在 1 和 {MAX} 之间。'
+CLI_PLAY_INVALID_SUB_ID: '§c对于歌单 {PLAYLIST} 的歌曲 ID 无效: {ID}。必须在 1 和 {MAX} 之间。'
+CLI_PLAY_SUCCESS: '§a正在为玩家 {PLAYER} 播放歌曲 {SONG}。'
+# Translated by hhzm

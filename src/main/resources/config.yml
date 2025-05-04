@@ -1,5 +1,5 @@
 # language - available by default : en, fr, de, se, es, ja, sk, lt, hu, pl, id, ru, ko, nl, it, zh_CN, zh_TW
-lang: en
+lang: zh_CN
 
 # force the music played on join (players can't disable it)
 forceJoinMusic: false

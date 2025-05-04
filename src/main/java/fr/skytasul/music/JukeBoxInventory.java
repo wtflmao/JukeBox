@@ -1,6 +1,7 @@
 package fr.skytasul.music;
 
 import com.xxmicloxx.NoteBlockAPI.model.Song;
+import com.xxmicloxx.NoteBlockAPI.model.Playlist;
 import fr.skytasul.music.utils.Lang;
 import fr.skytasul.music.utils.Playlists;
 import org.bukkit.Bukkit;
@@ -53,8 +54,14 @@ public class JukeBoxInventory implements Listener{
 	private UUID id;
 	public PlayerData pdata;
 
-	private int page = 0;
-	private ItemsMenu menu = ItemsMenu.DEFAULT;
+	private int mainListPage = 0;
+	private ItemsMenu currentView = ItemsMenu.PLAYLIST_LIST;
+	private String viewingPlaylistName = null;
+	private int songListPage = 0;
+
+	private static final Material PLAYLIST_ITEM_MATERIAL = Material.CHEST;
+	private static final Material SONG_ITEM_MATERIAL_DEFAULT = Material.MUSIC_DISC_CAT;
+	private static final ItemStack BACK_BUTTON_ITEM = item(Material.ARROW, Lang.GUI_BACK_BUTTON);
 
 	private Inventory inv;
 
@@ -66,53 +73,126 @@ public class JukeBoxInventory implements Listener{
 
 		Random ran = new Random();
 		discs = new Material[JukeBox.getSongs().size()];
-		for (int i = 0; i < discs.length; i++){
-			discs[i] = JukeBox.songItems.get(ran.nextInt(JukeBox.songItems.size()));
+		if (!JukeBox.songItems.isEmpty()) {
+			for (int i = 0; i < discs.length; i++){
+				discs[i] = JukeBox.songItems.get(ran.nextInt(JukeBox.songItems.size()));
+			}
 		}
 
 		this.inv = Bukkit.createInventory(null, 54, Lang.INV_NAME);
 
-		setSongsPage(p);
+		setPlaylistListPage(p);
 
 		openInventory(p);
 	}
 
 	public void openInventory(Player p) {
-		inv = p.openInventory(inv).getTopInventory();
-		menu = ItemsMenu.DEFAULT;
-		setItemsMenu();
+		this.currentView = ItemsMenu.PLAYLIST_LIST;
+		this.viewingPlaylistName = null;
+		this.mainListPage = 0;
+		this.songListPage = 0;
+		this.inv = p.openInventory(inv).getTopInventory();
+		setPlaylistListPage(p);
+		setItemsMenu(p);
 	}
 
-	public void setSongsPage(Player p) {
-		inv.setItem(52, item(Material.ARROW, Lang.LATER_PAGE, String.format(Lang.CURRENT_PAGE, page + 1, Math.max(JukeBox.maxPage, 1)))); // max to avoid 0 pages if no songs
-		inv.setItem(53, item(Material.ARROW, Lang.NEXT_PAGE, String.format(Lang.CURRENT_PAGE, page + 1, Math.max(JukeBox.maxPage, 1))));
+	public void setPlaylistListPage(Player p) {
+		List<String> orderedPlaylists = JukeBox.getPlaylistOrder();
+		int totalPlaylists = orderedPlaylists.size();
+		int totalPages = (int) Math.ceil(totalPlaylists * 1.0 / 45);
+		if (totalPages == 0) totalPages = 1;
+		String pageInfo = String.format(Lang.CURRENT_PAGE, mainListPage + 1, totalPages);
 
-		for (int i = 0; i < 45; i++) inv.setItem(i, null);
+		for (int i = 0; i < 54; i++) inv.setItem(i, null);
+		inv.setItem(52, item(Material.ARROW, Lang.LATER_PAGE, pageInfo));
+		inv.setItem(53, item(Material.ARROW, Lang.NEXT_PAGE, pageInfo));
+
 		if (pdata.getPlaylistType() == Playlists.RADIO) return;
-		if (JukeBox.getSongs().isEmpty()) return;
-		int i = 0;
-		for (; i < 45; i++){
-			Song s = JukeBox.getSongs().get((page*45) + i);
-			ItemStack is = getSongItem(s, p);
-			if (pdata.isInPlaylist(s)) loreAdd(is, playlistLore);
-			inv.setItem(i, is);
-			if (JukeBox.getSongs().size() - 1 == (page*45) + i) break;
+		if (totalPlaylists == 0) return;
+		int startIndex = mainListPage * 45;
+		for (int i = 0; i < 45 && (startIndex + i) < totalPlaylists; i++) {
+			int currentItemIndex = startIndex + i;
+			String playlistName = orderedPlaylists.get(currentItemIndex);
+			List<Song> songsInPlaylist = JukeBox.getDirectoryPlaylists().get(playlistName);
+			if (songsInPlaylist != null && !songsInPlaylist.isEmpty()) {
+				ItemStack playlistItem = new ItemStack(PLAYLIST_ITEM_MATERIAL);
+				ItemMeta meta = playlistItem.getItemMeta();
+				String displayName = Lang.GUI_PLAYLIST_ITEM_NAME
+						.replace("{ID}", String.valueOf(currentItemIndex + 1))
+						.replace("{NAME}", playlistName);
+				meta.setDisplayName(displayName);
+				List<String> lore = new ArrayList<>();
+				lore.add(Lang.PLAYLIST_ITEM_LORE_INFO.replace("{COUNT}", String.valueOf(songsInPlaylist.size())));
+				lore.add(Lang.GUI_PLAYLIST_ITEM_LORE_ACTION);
+				meta.setLore(lore);
+				playlistItem.setItemMeta(meta);
+				inv.setItem(i, playlistItem);
+			}
 		}
+		setItemsMenu(p);
 	}
 
-	public void setItemsMenu() {
-		for (int i = 45; i < 52; i++) inv.setItem(i, null);
-		if (menu != ItemsMenu.DEFAULT) inv.setItem(45, menuItem);
+	public void setSongListPage(Player p) {
+		if (viewingPlaylistName == null) return;
+		List<Song> songsInPlaylist = JukeBox.getDirectoryPlaylists().get(viewingPlaylistName);
+		if (songsInPlaylist == null) songsInPlaylist = Collections.emptyList();
+		int totalSongs = songsInPlaylist.size();
+		int totalPages = (int) Math.ceil(totalSongs * 1.0 / 45);
+		if (totalPages == 0) totalPages = 1;
+		String pageInfo = String.format(Lang.CURRENT_PAGE, songListPage + 1, totalPages);
 
-		switch (menu) {
-		case DEFAULT:
+		for (int i = 0; i < 54; i++) inv.setItem(i, null);
+		inv.setItem(45, BACK_BUTTON_ITEM);
+		inv.setItem(52, item(Material.ARROW, Lang.LATER_PAGE, pageInfo));
+		inv.setItem(53, item(Material.ARROW, Lang.NEXT_PAGE, pageInfo));
+
+		if (totalSongs == 0) return;
+		int startIndex = songListPage * 45;
+		for (int i = 0; i < 45 && (startIndex + i) < totalSongs; i++) {
+			int currentSongIndex = startIndex + i;
+			Song song = songsInPlaylist.get(currentSongIndex);
+			ItemStack songItem = new ItemStack(SONG_ITEM_MATERIAL_DEFAULT);
+			ItemMeta meta = songItem.getItemMeta();
+			String displayName = Lang.GUI_SONG_ITEM_NAME
+					.replace("{SUB_ID}", String.valueOf(currentSongIndex + 1))
+					.replace("{NAME}", JukeBox.getInternal(song));
+			meta.setDisplayName(displayName);
+			List<String> lore = new ArrayList<>();
+			String author = song.getAuthor();
+			if (author != null && !author.isEmpty()) {
+				lore.add("§7Author: §f" + author);
+			}
+			String description = song.getDescription();
+			if (description != null && !description.isEmpty()) {
+				lore.addAll(splitOnSpace("§7Desc: §f" + description, 30));
+			}
+			lore.add("§eLeft-click to play");
+			meta.setLore(lore);
+			meta.addItemFlags(ItemFlag.values());
+			songItem.setItemMeta(meta);
+			inv.setItem(i, songItem);
+		}
+		setItemsMenu(p);
+	}
+
+	public void setItemsMenu(Player p) {
+		for (int i = 45; i < 52; i++) inv.setItem(i, null);
+
+		switch (currentView) {
+		case PLAYLIST_LIST:
 			inv.setItem(45, stopItem);
 			if (pdata.isListening()) inv.setItem(46, toggleItem);
-			if (!JukeBox.getSongs().isEmpty() && pdata.getPlayer().hasPermission("music.random")) inv.setItem(47, randomItem);
+			if (!JukeBox.getSongs().isEmpty() && p.hasPermission("music.random")) inv.setItem(47, randomItem);
 			inv.setItem(49, playlistMenuItem);
 			inv.setItem(50, optionsMenuItem);
 			break;
+		case SONG_LIST:
+			inv.setItem(45, BACK_BUTTON_ITEM);
+			inv.setItem(46, stopItem);
+			if (pdata.isListening()) inv.setItem(47, toggleItem);
+			break;
 		case OPTIONS:
+			inv.setItem(45, menuItem);
 			inv.setItem(47, item(Material.BEACON, "§cerror", Lang.RIGHT_CLICK, Lang.LEFT_CLICK));
 			volumeItem();
 			if (pdata.getPlaylistType() != Playlists.RADIO) {
@@ -127,6 +207,7 @@ public class JukeBoxInventory implements Listener{
 			}
 			break;
 		case PLAYLIST:
+			inv.setItem(45, menuItem);
 			inv.setItem(47, nextSongItem);
 			inv.setItem(48, clearItem);
 			inv.setItem(50, pdata.getPlaylistType().item);
@@ -141,127 +222,146 @@ public class JukeBoxInventory implements Listener{
 	@EventHandler
 	public void onClick(InventoryClickEvent e){
 		Player p = (Player) e.getWhoClicked();
-		if (e.getClickedInventory() != inv) return;
-		if (e.getCurrentItem() == null) return;
+		if (e.getClickedInventory() == null || !e.getClickedInventory().equals(inv)) return;
+		if (e.getCurrentItem() == null || e.getCurrentItem().getType() == Material.AIR) return;
 		if (!p.getUniqueId().equals(id)) return;
 		e.setCancelled(true);
 		int slot = e.getSlot();
+		ItemStack clickedItem = e.getCurrentItem();
 
-		Material type = e.getCurrentItem().getType();
-		if (JukeBox.songItems.contains(type)) {
-			Song s = JukeBox.getSongs().get(page * 45 + slot);
-			if (e.getClick() == ClickType.MIDDLE){
-				if (pdata.isInPlaylist(s)) {
-					pdata.removeSong(s);
-					inv.setItem(slot, getSongItem(s, p));
-				}else {
-					if (pdata.addSong(s, false)) inv.setItem(slot, loreAdd(getSongItem(s, p), playlistLore));
+		switch (currentView) {
+		case PLAYLIST_LIST:
+			if (slot < 45 && clickedItem.getType() == PLAYLIST_ITEM_MATERIAL) {
+				String displayName = ChatColor.stripColor(clickedItem.getItemMeta().getDisplayName());
+				String playlistName = displayName.substring(displayName.indexOf(']') + 2);
+				viewingPlaylistName = playlistName;
+				songListPage = 0;
+				currentView = ItemsMenu.SONG_LIST;
+				setSongListPage(p);
+			} else if (slot == 52 || slot == 53) {
+				int totalPlaylists = JukeBox.getPlaylistOrder().size();
+				int totalPages = (int) Math.ceil(totalPlaylists * 1.0 / 45);
+				if (totalPages == 0) totalPages = 1;
+				if (slot == 53 && mainListPage < totalPages - 1) {
+					mainListPage++;
+				} else if (slot == 52 && mainListPage > 0) {
+					mainListPage--;
 				}
-			}else if (pdata.playSong(s)) inv.setItem(slot, loreAdd(getSongItem(s, p), playlistLore));
+				setPlaylistListPage(p);
+			} else if (slot >= 45) {
+				handleBottomMenuClick(p, slot, clickedItem, e.getClick());
+			}
+			break;
+		case SONG_LIST:
+			if (slot < 45 && clickedItem.getType().name().contains("DISC")) {
+				List<Song> songsInList = JukeBox.getDirectoryPlaylists().get(viewingPlaylistName);
+				if (songsInList != null) {
+					int songIndex = slot + songListPage * 45;
+					if (songIndex >= 0 && songIndex < songsInList.size()) {
+						Song songToPlay = songsInList.get(songIndex);
+						pdata.playSong(songToPlay);
+						p.closeInventory();
+					} else {
+						JukeBox.sendMessage(p, "§cError selecting song.");
+					}
+				} else {
+					JukeBox.sendMessage(p, "§cError accessing playlist songs.");
+				}
+			} else if (slot == 45 && clickedItem.equals(BACK_BUTTON_ITEM)) {
+				currentView = ItemsMenu.PLAYLIST_LIST;
+				viewingPlaylistName = null;
+				setPlaylistListPage(p);
+			} else if (slot == 52 || slot == 53) {
+				List<Song> songsInList = JukeBox.getDirectoryPlaylists().get(viewingPlaylistName);
+				int totalSongs = (songsInList != null) ? songsInList.size() : 0;
+				int totalPages = (int) Math.ceil(totalSongs * 1.0 / 45);
+				if (totalPages == 0) totalPages = 1;
+				if (slot == 53 && songListPage < totalPages - 1) {
+					songListPage++;
+				} else if (slot == 52 && songListPage > 0) {
+					songListPage--;
+				}
+				setSongListPage(p);
+			} else if (slot >= 45) {
+				handleBottomMenuClick(p, slot, clickedItem, e.getClick());
+			}
+			break;
+		case OPTIONS:
+		case PLAYLIST:
+			if (slot >= 45) {
+				handleBottomMenuClick(p, slot, clickedItem, e.getClick());
+			}
+			break;
+		}
+	}
+
+	private void handleBottomMenuClick(Player p, int slot, ItemStack clickedItem, ClickType click) {
+		if (slot == 45) {
+			if (currentView == ItemsMenu.PLAYLIST_LIST) {
+				pdata.stopPlaying(true);
+				setItemsMenu(p);
+			} else if (currentView == ItemsMenu.OPTIONS || currentView == ItemsMenu.PLAYLIST) {
+				currentView = ItemsMenu.PLAYLIST_LIST;
+				setPlaylistListPage(p);
+			}
 			return;
 		}
 
-		switch (slot){
-
-		case 52:
-		case 53:
-			if (JukeBox.maxPage == 0) break;
-			if (slot == 53){ //Next
-				if (page == JukeBox.maxPage - 1) break;
-				page++;
-			}else if (slot == 52){ // Later
-				if (page == 0) return;
-				page--;
-			}
-			setSongsPage(p);
-			break;
-
-		default:
-			if (slot == 45) {
-				if (menu == ItemsMenu.DEFAULT) {
-					pdata.stopPlaying(true);
-					inv.setItem(46, null);
-				}else {
-					menu = ItemsMenu.DEFAULT;
-					setItemsMenu();
-				}
-				return;
-			}
-
-			switch (menu) {
-			case DEFAULT:
-				switch (slot) {
-				case 46:
-					pdata.togglePlaying();
-					break;
-
-				case 47:
-					pdata.playRandom();
-					break;
-
-				case 49:
-					menu = ItemsMenu.PLAYLIST;
-					setItemsMenu();
-					break;
-
-				case 50:
-					menu = ItemsMenu.OPTIONS;
-					setItemsMenu();
-					break;
-
-				}
-				break;
-
-
-			case OPTIONS:
-				switch (slot) {
-				case 47:
-					if (e.getClick() == ClickType.RIGHT) pdata.setVolume((byte) (pdata.getVolume() - 10));
-					if (e.getClick() == ClickType.LEFT) pdata.setVolume((byte) (pdata.getVolume() + 10));
-					if (pdata.getVolume() < 0) pdata.setVolume((byte) 0);
-					if (pdata.getVolume() > 100) pdata.setVolume((byte) 100);
-					break;
-
-				case 48:
-					pdata.setParticles(!pdata.hasParticles());
-					break;
-
-				case 49:
-					if (!JukeBox.autoJoin) pdata.setJoinMusic(!pdata.hasJoinMusic());
-					break;
-
-				case 50:
-					pdata.setShuffle(!pdata.isShuffle());
-					break;
-
-				case 51:
-					pdata.setRepeat(!pdata.isRepeatEnabled());
-					break;
-				}
-				break;
-
-
-			case PLAYLIST:
-				switch (slot) {
-				case 47:
-					pdata.nextSong();
-					break;
-
-				case 48:
-					pdata.clearPlaylist();
-					setSongsPage(p);
-					break;
-
-				case 50:
-					pdata.nextPlaylist();
-					setSongsPage(p);
-					break;
-
-				}
-				break;
+		switch (slot) {
+		case 46:
+			if (currentView == ItemsMenu.PLAYLIST_LIST || currentView == ItemsMenu.SONG_LIST) {
+				pdata.togglePlaying();
+				setItemsMenu(p);
 			}
 			break;
-
+		case 47:
+			if (currentView == ItemsMenu.PLAYLIST_LIST) {
+				pdata.playRandom();
+			} else if (currentView == ItemsMenu.OPTIONS) {
+				if (click == ClickType.RIGHT) pdata.setVolume((byte) (pdata.getVolume() - 10));
+				if (click == ClickType.LEFT) pdata.setVolume((byte) (pdata.getVolume() + 10));
+				if (pdata.getVolume() < 0) pdata.setVolume((byte) 0);
+				if (pdata.getVolume() > 100) pdata.setVolume((byte) 100);
+				volumeItem();
+			} else if (currentView == ItemsMenu.PLAYLIST) {
+				pdata.nextSong();
+			}
+			break;
+		case 48:
+			if (currentView == ItemsMenu.OPTIONS) {
+				pdata.setParticles(!pdata.hasParticles());
+				particlesItem();
+			} else if (currentView == ItemsMenu.PLAYLIST) {
+				pdata.clearPlaylist();
+			}
+			break;
+		case 49:
+			if (currentView == ItemsMenu.PLAYLIST_LIST) {
+				currentView = ItemsMenu.PLAYLIST;
+				setItemsMenu(p);
+			} else if (currentView == ItemsMenu.OPTIONS) {
+				if (!JukeBox.autoJoin) pdata.setJoinMusic(!pdata.hasJoinMusic());
+				joinItem();
+			}
+			break;
+		case 50:
+			if (currentView == ItemsMenu.PLAYLIST_LIST) {
+				currentView = ItemsMenu.OPTIONS;
+				setItemsMenu(p);
+			} else if (currentView == ItemsMenu.OPTIONS) {
+				pdata.setShuffle(!pdata.isShuffle());
+				shuffleItem();
+			} else if (currentView == ItemsMenu.PLAYLIST) {
+				pdata.nextPlaylist();
+				playlistItem();
+			}
+			break;
+		case 51:
+			if (currentView == ItemsMenu.OPTIONS) {
+				pdata.setRepeat(!pdata.isRepeatEnabled());
+				repeatItem();
+			}
+			break;
 		}
 	}
 
@@ -272,26 +372,26 @@ public class JukeBoxInventory implements Listener{
 	}
 
 	public void volumeItem(){
-		if (menu == ItemsMenu.OPTIONS) name(inv.getItem(47), Lang.VOLUME + pdata.getVolume() + "%");
+		if (currentView == ItemsMenu.OPTIONS) name(inv.getItem(47), Lang.VOLUME + pdata.getVolume() + "%");
 	}
 
 	public void particlesItem(){
-		if (menu != ItemsMenu.OPTIONS) return;
+		if (currentView != ItemsMenu.OPTIONS) return;
 		if (!JukeBox.particles) return;
 		if (!JukeBox.particles) inv.setItem(48, null);
 		name(inv.getItem(48), ChatColor.AQUA + replaceToggle(Lang.TOGGLE_PARTICLES, pdata.hasParticles()));
 	}
 
 	public void joinItem(){
-		if (menu == ItemsMenu.OPTIONS) name(inv.getItem(49), ChatColor.GREEN + replaceToggle(Lang.TOGGLE_CONNEXION_MUSIC, pdata.hasJoinMusic()));
+		if (currentView == ItemsMenu.OPTIONS) name(inv.getItem(49), ChatColor.GREEN + replaceToggle(Lang.TOGGLE_CONNEXION_MUSIC, pdata.hasJoinMusic()));
 	}
 
 	public void shuffleItem(){
-		if (menu == ItemsMenu.OPTIONS) name(inv.getItem(50), ChatColor.YELLOW + replaceToggle(Lang.TOGGLE_SHUFFLE_MODE, pdata.isShuffle()));
+		if (currentView == ItemsMenu.OPTIONS) name(inv.getItem(50), ChatColor.YELLOW + replaceToggle(Lang.TOGGLE_SHUFFLE_MODE, pdata.isShuffle()));
 	}
 
 	public void repeatItem(){
-		if (menu == ItemsMenu.OPTIONS) name(inv.getItem(51), ChatColor.GOLD + replaceToggle(Lang.TOGGLE_LOOP_MODE, pdata.isRepeatEnabled()));
+		if (currentView == ItemsMenu.OPTIONS) name(inv.getItem(51), ChatColor.GOLD + replaceToggle(Lang.TOGGLE_LOOP_MODE, pdata.isRepeatEnabled()));
 	}
 
 	private String replaceToggle(String string, boolean enabled) {
@@ -299,29 +399,26 @@ public class JukeBoxInventory implements Listener{
 	}
 
 	public void playingStarted() {
-		if (menu == ItemsMenu.DEFAULT) inv.setItem(46, toggleItem);
+		if (currentView == ItemsMenu.PLAYLIST_LIST || currentView == ItemsMenu.SONG_LIST) inv.setItem(46, toggleItem);
 	}
 
 	public void playingStopped() {
-		if (menu == ItemsMenu.DEFAULT) inv.setItem(46, null);
+		if (currentView == ItemsMenu.PLAYLIST_LIST || currentView == ItemsMenu.SONG_LIST) inv.setItem(46, null);
 	}
 
 	public void playlistItem(){
-		if (menu == ItemsMenu.PLAYLIST)
+		if (currentView == ItemsMenu.PLAYLIST)
 			inv.setItem(50, pdata.getPlaylistType().item);
-		else if (menu == ItemsMenu.OPTIONS) setItemsMenu();
+		else if (currentView == ItemsMenu.OPTIONS) setItemsMenu(null);
 	}
 
 	public void songItem(int id, Player p) {
-		if (!(id > page*45 && id < (page+1)*45) || pdata.getPlaylistType() == Playlists.RADIO) return;
+		if (!(id > mainListPage*45 && id < (mainListPage+1)*45) || pdata.getPlaylistType() == Playlists.RADIO) return;
 		Song song = JukeBox.getSongs().get(id);
 		ItemStack is = getSongItem(song, p);
 		if (pdata.isInPlaylist(song)) loreAdd(is, playlistLore);
-		inv.setItem(id - page*45, is);
+		inv.setItem(id - mainListPage*45, is);
 	}
-
-
-
 
 	public static ItemStack item(Material type, String name, String... lore) {
 		ItemStack is = new ItemStack(type);
@@ -406,7 +503,7 @@ public class JukeBoxInventory implements Listener{
 	}
 
 	enum ItemsMenu{
-		DEFAULT, OPTIONS, PLAYLIST;
+		PLAYLIST_LIST, SONG_LIST, OPTIONS, PLAYLIST;
 	}
 
 }

@@ -52,6 +52,7 @@ public class JukeBox extends JavaPlugin implements Listener{
 	private static File playersFile;
 	public static FileConfiguration players;
 	public static File songsFolder;
+	private static File defaultPlaylistFile;
 
 	public static JukeBoxRadio radio = null;
 
@@ -59,6 +60,8 @@ public class JukeBox extends JavaPlugin implements Listener{
 	private static Map<String, Song> fileNames;
 	private static Map<String, Song> internalNames;
 	private static Playlist playlist;
+	private static Playlist defaultPlaylist = null;
+	private static List<String> defaultFavoritesList = new ArrayList<>();
 
 	public static int maxPage;
 	public static boolean jukeboxClick = false;
@@ -97,6 +100,10 @@ public class JukeBox extends JavaPlugin implements Listener{
 
 	private BukkitTask vanillaMusicTask = null;
 	public Consumer<Player> stopVanillaMusic = null;
+
+	// Added for directory playlists
+	private static Map<String, List<Song>> directoryPlaylists = new LinkedHashMap<>();
+	private static List<String> playlistOrder = new ArrayList<>();
 
 	@Override
 	public void onEnable(){
@@ -237,6 +244,8 @@ public class JukeBox extends JavaPlugin implements Listener{
 				ex.printStackTrace();
 			}
 		}
+
+		loadDefaultPlaylist();
 	}
 
 	private Class<?> getVersionedClass(String packageName, String className) throws ClassNotFoundException {
@@ -272,32 +281,81 @@ public class JukeBox extends JavaPlugin implements Listener{
 		songs = new LinkedList<>();
 		fileNames = new HashMap<>();
 		internalNames = new HashMap<>();
+		directoryPlaylists.clear();
+		playlistOrder.clear();
+
 		songsFolder = new File(getDataFolder(), "songs");
 		if (!songsFolder.exists()) songsFolder.mkdirs();
-		for (File file : songsFolder.listFiles()){
-			if (file.getName().substring(file.getName().lastIndexOf(".") + 1).equals("nbs")){
-				Song song = NBSDecoder.parse(file);
-				if (song == null) continue;
-				String n = getInternal(song);
-				if (internalNames.containsKey(n)) {
-					getLogger().warning("Song \"" + n + "\" is duplicated. Please delete one from the songs directory. File name: " + file.getName());
-					continue;
+
+		int loadedCount = 0;
+		List<String> looseFiles = new ArrayList<>();
+
+		for (File item : songsFolder.listFiles()){
+			if (item.isDirectory()) {
+				String playlistName = item.getName();
+				List<Song> songsInDir = new ArrayList<>();
+				getLogger().info("Loading songs from directory: " + playlistName);
+				for (File songFile : item.listFiles()) {
+					if (songFile.isFile() && songFile.getName().toLowerCase().endsWith(".nbs")) {
+						Song song = NBSDecoder.parse(songFile);
+						if (song == null) {
+							getLogger().warning("Could not parse NBS file: " + songFile.getName() + " in directory " + playlistName);
+							continue;
+						}
+						String internalName = getInternal(song);
+						if (internalNames.containsKey(internalName)) {
+							getLogger().warning("Song internal name '" + internalName + "' from file " + songFile.getName() + " in directory " + playlistName + " is duplicated (already loaded from another file/directory). Skipping.");
+							continue;
+						}
+						songsInDir.add(song);
+						internalNames.put(internalName, song);
+						fileNames.put(songFile.getName(), song); // Keep file name mapping if needed
+						loadedCount++;
+					}
 				}
-				fileNames.put(file.getName(), song);
-				internalNames.put(n, song);
-				if (file.getName().equals(songOnJoinName)) songOnJoin = song;
+				if (!songsInDir.isEmpty()) {
+					// Sort songs within the directory playlist by internal name
+					songsInDir.sort(Comparator.comparing(JukeBox::getInternal, Collator.getInstance()));
+					directoryPlaylists.put(playlistName, songsInDir);
+					playlistOrder.add(playlistName); // Add directory name to the order list
+					getLogger().info("Loaded " + songsInDir.size() + " songs for playlist '" + playlistName + "'.");
+				} else {
+					getLogger().info("Directory '" + playlistName + "' is empty or contains no valid NBS files.");
+				}
+			} else if (item.isFile() && item.getName().toLowerCase().endsWith(".nbs")) {
+				// Handle loose files - add to a special playlist or warn user
+				looseFiles.add(item.getName());
 			}
 		}
-		getLogger().info(internalNames.size() + " songs loadeds. Sorting by name... ");
-		List<String> names = new ArrayList<>(internalNames.keySet());
-		Collections.sort(names, Collator.getInstance());
-		for (String str : names){
-			songs.add(internalNames.get(str));
+
+		// Sort the directory playlist order list by name
+		Collections.sort(playlistOrder, Collator.getInstance());
+
+		if (!looseFiles.isEmpty()) {
+			getLogger().warning(Lang.LOOSE_NBS_FILES_WARNING.replace("{FILES}", String.join(", ", looseFiles))); // Need Lang key
 		}
 
-		setMaxPage();
-		getLogger().info("Songs sorted ! " + songs.size() + " songs. Number of pages : " + maxPage);
-		if (!songs.isEmpty()) playlist = new Playlist(songs.toArray(new Song[0]));
+		// Populate the global 'songs' list from directory playlists for Radio/Admin list
+		// The order in the global list might differ now due to directory sorting
+		songs.clear(); // Ensure it's empty before repopulating
+		for (String orderedPlaylistName : playlistOrder) { // Iterate in sorted order
+			if (directoryPlaylists.containsKey(orderedPlaylistName)) {
+				songs.addAll(directoryPlaylists.get(orderedPlaylistName));
+			}
+		}
+		// Collections.sort(songs, Comparator.comparing(JukeBox::getInternal, Collator.getInstance())); // Global sort might not be needed/desired anymore
+
+		getLogger().info(internalNames.size() + " total unique songs loaded from " + directoryPlaylists.size() + " directories. Total playlists: " + playlistOrder.size());
+
+		setMaxPage(); // Update max page based on number of directory playlists
+		getLogger().info("Directory playlists sorted! Number of playlist pages: " + maxPage);
+
+		// Create global playlist object if needed (for Radio)
+		if (!songs.isEmpty()) { 
+			playlist = new Playlist(songs.toArray(new Song[0]));
+		} else { 
+			playlist = null;
+		}
 
 		/* --------------------------------------------- PLAYERS ------- */
 		try {
@@ -320,7 +378,8 @@ public class JukeBox extends JavaPlugin implements Listener{
 	}
 
 	void setMaxPage(){
-		maxPage = (int) StrictMath.ceil(songs.size() * 1.0 / 45);
+		maxPage = (int) StrictMath.ceil(playlistOrder.size() * 1.0 / 45); // New logic based on number of playlists
+		if (maxPage == 0) maxPage = 1; // Ensure at least one page even if empty
 	}
 
 
@@ -376,9 +435,13 @@ public class JukeBox extends JavaPlugin implements Listener{
 	@EventHandler
 	public void onInteract(PlayerInteractEvent e){
 		if (e.getItem() == null) return;
+		Player p = e.getPlayer();
+		PlayerData pdata = datas.getDatas(p);
+		if (pdata == null) return;
+
 		if (jukeboxItem != null && (e.getAction() == Action.RIGHT_CLICK_AIR || e.getAction() == Action.RIGHT_CLICK_BLOCK)){
 			if (e.getItem().equals(jukeboxItem)){
-				CommandMusic.open(e.getPlayer());
+				CommandMusic.open(p, pdata);
 				e.setCancelled(true);
 				return;
 			}
@@ -387,7 +450,7 @@ public class JukeBox extends JavaPlugin implements Listener{
 			if (e.getClickedBlock().getType() == Material.JUKEBOX){
 				String disc = e.getItem().getType().name();
 				if (disc.contains("RECORD") || disc.contains("MUSIC_DISC_")) {
-					CommandMusic.open(e.getPlayer());
+					CommandMusic.open(p, pdata);
 					e.setCancelled(true);
 					return;
 				}
@@ -439,6 +502,7 @@ public class JukeBox extends JavaPlugin implements Listener{
 	}
 
 	public static String getInternal(Song s) {
+		if (s == null) return "";
 		if (s.getTitle() == null || s.getTitle().isEmpty()) return s.getPath().getName();
 		return s.getTitle();
 	}
@@ -477,6 +541,96 @@ public class JukeBox extends JavaPlugin implements Listener{
 			return true;
 		}
 		return false;
+	}
+
+	private void loadDefaultPlaylist() {
+		defaultPlaylistFile = new File(getDataFolder(), "default_playlist.yml");
+		try {
+			if (!defaultPlaylistFile.exists()) {
+				getLogger().info("Creating default_playlist.yml...");
+				getDataFolder().mkdir();
+				defaultPlaylistFile.createNewFile();
+				YamlConfiguration cfg = new YamlConfiguration();
+				cfg.options().header("List of internal song names for the default playlist given to new players.\nUse /jukeboxadmin songs list to see available internal names.");
+				cfg.set("defaultFavorites", new ArrayList<String>());
+				cfg.save(defaultPlaylistFile);
+			}
+			YamlConfiguration cfg = YamlConfiguration.loadConfiguration(defaultPlaylistFile);
+			List<String> rawList = cfg.getStringList("defaultFavorites");
+			defaultFavoritesList.clear();
+			List<Song> validSongs = new ArrayList<>();
+			for (String songName : rawList) {
+				Song song = getSongByInternalName(songName);
+				if (song != null) {
+					validSongs.add(song);
+					defaultFavoritesList.add(songName);
+				} else {
+					getLogger().warning("Song '" + songName + "' listed in default_playlist.yml not found. Skipping.");
+				}
+			}
+
+			if (!validSongs.isEmpty()) {
+				defaultPlaylist = new Playlist(validSongs.toArray(new Song[0]));
+				getLogger().info("Loaded " + validSongs.size() + " songs into the default playlist.");
+			} else {
+				defaultPlaylist = null;
+				getLogger().info("Default playlist is empty or contains only invalid songs.");
+			}
+		} catch (IOException e) {
+			getLogger().log(Level.SEVERE, "Failed to load or create default_playlist.yml", e);
+			defaultPlaylist = null;
+		}
+	}
+
+	public boolean saveAndUpdateDefaultPlaylist() {
+		if (defaultPlaylistFile == null) {
+			getLogger().severe("Default playlist file reference is null. Cannot save.");
+			return false;
+		}
+		try {
+			YamlConfiguration cfg = YamlConfiguration.loadConfiguration(defaultPlaylistFile);
+			cfg.set("defaultFavorites", defaultFavoritesList);
+			cfg.save(defaultPlaylistFile);
+
+			List<Song> validSongs = new ArrayList<>();
+			for (String songName : defaultFavoritesList) {
+				Song song = getSongByInternalName(songName);
+				if (song != null) {
+					validSongs.add(song);
+				}
+			}
+			if (!validSongs.isEmpty()) {
+				defaultPlaylist = new Playlist(validSongs.toArray(new Song[0]));
+			} else {
+				defaultPlaylist = null;
+			}
+			return true;
+		} catch (IOException e) {
+			getLogger().log(Level.SEVERE, "Failed to save default_playlist.yml", e);
+			return false;
+		}
+	}
+
+	public static Playlist getDefaultPlaylist() {
+		return defaultPlaylist;
+	}
+
+	public static List<String> getDefaultFavoritesList() {
+		return Collections.unmodifiableList(defaultFavoritesList);
+	}
+
+	public static void updateDefaultFavoritesList(List<String> newList) {
+		defaultFavoritesList.clear();
+		defaultFavoritesList.addAll(newList);
+	}
+
+	// Added Getters for new structures
+	public static Map<String, List<Song>> getDirectoryPlaylists() {
+		return Collections.unmodifiableMap(directoryPlaylists);
+	}
+
+	public static List<String> getPlaylistOrder() {
+		return Collections.unmodifiableList(playlistOrder);
 	}
 
 }

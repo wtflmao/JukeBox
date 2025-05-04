@@ -4,8 +4,8 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>fr.skytasul</groupId>
 	<artifactId>jukebox</artifactId>
-	<version>1.20.13</version>
-	<name>JukeBox</name>
+	<version>1.20.16-JK-rewritten</version>
+	<name>JukeBox-JK-rewritten</name>
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>

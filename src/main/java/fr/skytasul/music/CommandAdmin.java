@@ -96,29 +96,62 @@ public class CommandAdmin implements CommandExecutor{
 			}
 			try {
 				int listId = Integer.parseInt(args[2]);
-				int subSongId = Integer.parseInt(args[3]);
+				String lastArg = args[3];
+
 				if (listId <= 0 || listId > JukeBox.getPlaylistOrder().size()) {
 					sender.sendMessage(Lang.CLI_PLAY_INVALID_LIST_ID.replace("{ID}", args[2]).replace("{MAX}", String.valueOf(JukeBox.getPlaylistOrder().size())));
 					return true;
 				}
+
 				String playlistName = JukeBox.getPlaylistOrder().get(listId - 1);
 				List<Song> songsInPlaylist = JukeBox.getDirectoryPlaylists().get(playlistName);
-				if (songsInPlaylist == null || subSongId <= 0 || subSongId > songsInPlaylist.size()) {
-					int maxSubId = (songsInPlaylist == null) ? 0 : songsInPlaylist.size();
-					sender.sendMessage(Lang.CLI_PLAY_INVALID_SUB_ID.replace("{ID}", args[3]).replace("{MAX}", String.valueOf(maxSubId)).replace("{PLAYLIST}", playlistName));
+
+				if (songsInPlaylist == null || songsInPlaylist.isEmpty()) {
+					sender.sendMessage("§cPlaylist '" + playlistName + "' (ID: " + listId + ") is empty or invalid.");
 					return true;
 				}
-				Song songToPlay = songsInPlaylist.get(subSongId - 1);
+
 				PlayerData targetPdata = JukeBox.getInstance().datas.getDatas(targetPlayer);
 				if (targetPdata == null) {
 					sender.sendMessage("§cCould not get player data for " + targetPlayer.getName());
 					return true;
 				}
-				targetPdata.playSong(songToPlay);
-				if (targetPdata.songPlayer != null) targetPdata.songPlayer.adminPlayed = true;
-				sender.sendMessage(Lang.CLI_PLAY_SUCCESS.replace("{SONG}", JukeBox.getInternal(songToPlay)).replace("{PLAYER}", targetPlayer.getName()));
-			} catch (NumberFormatException ex) {
-				sender.sendMessage(Lang.INVALID_NUMBER + " for List ID or Song ID.");
+
+				if (lastArg.equalsIgnoreCase("random")) {
+					targetPdata.playDirectoryPlaylist(songsInPlaylist, playlistName);
+					if (targetPdata.songPlayer != null) targetPdata.songPlayer.adminPlayed = true;
+					if (JukeBox.adminCommandFeedback) {
+						sender.sendMessage(Lang.CLI_PLAY_RANDOM_SUCCESS.replace("{PLAYLIST}", playlistName).replace("{PLAYER}", targetPlayer.getName()));
+					}
+					if (targetPdata.songPlayer != null) {
+						Song firstSong = targetPdata.songPlayer.getSong();
+						if (firstSong != null) {
+							int subId = songsInPlaylist.indexOf(firstSong) + 1;
+							if (JukeBox.adminCommandFeedback) {
+								sender.sendMessage(Lang.CLI_RANDOM_STARTED_WITH.replace("{SUB_ID}", String.valueOf(subId)).replace("{SONG}", JukeBox.getInternal(firstSong)).replace("{PLAYER}", targetPlayer.getName()));
+							}
+						}
+					}
+				} else {
+					try {
+						int subSongId = Integer.parseInt(lastArg);
+						if (subSongId <= 0 || subSongId > songsInPlaylist.size()) {
+							sender.sendMessage(Lang.CLI_PLAY_INVALID_SUB_ID.replace("{ID}", lastArg).replace("{MAX}", String.valueOf(songsInPlaylist.size())).replace("{PLAYLIST}", playlistName));
+							return true;
+						}
+						Song songToPlay = songsInPlaylist.get(subSongId - 1);
+						targetPdata.playSong(songToPlay);
+						if (targetPdata.songPlayer != null) targetPdata.songPlayer.adminPlayed = true;
+						if (JukeBox.adminCommandFeedback) {
+							sender.sendMessage(Lang.CLI_PLAY_SUCCESS.replace("{SONG}", JukeBox.getInternal(songToPlay)).replace("{PLAYER}", targetPlayer.getName()));
+						}
+					} catch (NumberFormatException exSub) {
+						sender.sendMessage(Lang.INVALID_NUMBER + " for Song ID (or use 'random').");
+						return true;
+					}
+				}
+			} catch (NumberFormatException exListId) {
+				sender.sendMessage(Lang.INVALID_NUMBER + " for List ID.");
 				return true;
 			}
 			break;

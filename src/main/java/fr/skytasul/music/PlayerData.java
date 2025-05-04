@@ -372,12 +372,11 @@ public class PlayerData implements Listener{
 	}
 
 	private void playSong(boolean next){
-		if (listening == Playlists.PLAYLIST && !randomPlaylist.isEmpty()){
-			songPlayer.playSong(randomPlaylist.get(0));
-			int id = randomPlaylist.remove(0);
-			if (next && linked != null) linked.songItem(id, getPlayer());
-		}
-		JukeBox.sendMessage(getPlayer(), Lang.MUSIC_PLAYING + " " + JukeBox.getSongName(songPlayer.getSong()));
+		if (songPlayer == null) return;
+		Song s = songPlayer.getSong();
+		if (!next) s = songPlayer.getPlaylist().get(songPlayer.getPlayedSongIndex());
+		if (s == null) return;
+		// if (p != null && p.isOnline() && JukeBox.sendMsg && songPlayer.adminPlayed) JukeBox.sendMessage(p, Lang.MUSIC_PLAYING + " " + JukeBox.getSongName(s)); // Commented out to prevent message to target player on admin play
 	}
 
 	public UUID getID(){

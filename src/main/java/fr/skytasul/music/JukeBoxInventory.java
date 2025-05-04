@@ -62,6 +62,7 @@ public class JukeBoxInventory implements Listener{
 	private static final Material PLAYLIST_ITEM_MATERIAL = Material.CHEST;
 	private static final Material SONG_ITEM_MATERIAL_DEFAULT = Material.MUSIC_DISC_CAT;
 	private static final ItemStack BACK_BUTTON_ITEM = item(Material.ARROW, Lang.GUI_BACK_BUTTON);
+	private static final ItemStack RANDOM_THIS_PLAYLIST_ITEM = item(Material.ENDER_EYE, Lang.GUI_RANDOM_THIS_PLAYLIST_BUTTON);
 
 	private Inventory inv;
 
@@ -146,7 +147,10 @@ public class JukeBoxInventory implements Listener{
 		inv.setItem(52, item(Material.ARROW, Lang.LATER_PAGE, pageInfo));
 		inv.setItem(53, item(Material.ARROW, Lang.NEXT_PAGE, pageInfo));
 
-		if (totalSongs == 0) return;
+		if (totalSongs == 0) {
+			setItemsMenu(p);
+			return;
+		}
 		int startIndex = songListPage * 45;
 		for (int i = 0; i < 45 && (startIndex + i) < totalSongs; i++) {
 			int currentSongIndex = startIndex + i;
@@ -182,7 +186,6 @@ public class JukeBoxInventory implements Listener{
 		case PLAYLIST_LIST:
 			inv.setItem(45, stopItem);
 			if (pdata.isListening()) inv.setItem(46, toggleItem);
-			if (!JukeBox.getSongs().isEmpty() && p.hasPermission("music.random")) inv.setItem(47, randomItem);
 			inv.setItem(49, playlistMenuItem);
 			inv.setItem(50, optionsMenuItem);
 			break;
@@ -190,6 +193,12 @@ public class JukeBoxInventory implements Listener{
 			inv.setItem(45, BACK_BUTTON_ITEM);
 			inv.setItem(46, stopItem);
 			if (pdata.isListening()) inv.setItem(47, toggleItem);
+			if (viewingPlaylistName != null) {
+				List<Song> songsInList = JukeBox.getDirectoryPlaylists().get(viewingPlaylistName);
+				if (songsInList != null && !songsInList.isEmpty()) {
+					inv.setItem(48, RANDOM_THIS_PLAYLIST_ITEM);
+				}
+			}
 			break;
 		case OPTIONS:
 			inv.setItem(45, menuItem);
@@ -260,7 +269,7 @@ public class JukeBoxInventory implements Listener{
 					if (songIndex >= 0 && songIndex < songsInList.size()) {
 						Song songToPlay = songsInList.get(songIndex);
 						pdata.playSong(songToPlay);
-						p.closeInventory();
+						//p.closeInventory();
 					} else {
 						JukeBox.sendMessage(p, "§cError selecting song.");
 					}
@@ -328,7 +337,28 @@ public class JukeBoxInventory implements Listener{
 			}
 			break;
 		case 48:
-			if (currentView == ItemsMenu.OPTIONS) {
+			if (currentView == ItemsMenu.SONG_LIST) {
+				if (viewingPlaylistName != null) {
+					List<Song> sortedSongsToPlay = JukeBox.getDirectoryPlaylists().get(viewingPlaylistName);
+					if (sortedSongsToPlay != null && !sortedSongsToPlay.isEmpty()) {
+						pdata.playDirectoryPlaylist(sortedSongsToPlay, viewingPlaylistName);
+						if (pdata.songPlayer != null) {
+							Song firstSong = pdata.songPlayer.getSong();
+							if (firstSong != null) {
+								int subId = sortedSongsToPlay.indexOf(firstSong) + 1;
+								JukeBox.sendMessage(p, Lang.GUI_RANDOM_STARTED_WITH
+										.replace("{SUB_ID}", String.valueOf(subId))
+										.replace("{SONG}", JukeBox.getInternal(firstSong)));
+							}
+						}
+						p.closeInventory();
+					} else {
+						JukeBox.sendMessage(p, "§cPlaylist is empty or invalid.");
+					}
+				} else {
+					JukeBox.sendMessage(p, "§cError: No playlist selected.");
+				}
+			} else if (currentView == ItemsMenu.OPTIONS) {
 				pdata.setParticles(!pdata.hasParticles());
 				particlesItem();
 			} else if (currentView == ItemsMenu.PLAYLIST) {

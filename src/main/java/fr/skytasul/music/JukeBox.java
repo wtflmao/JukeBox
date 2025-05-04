@@ -90,8 +90,9 @@ public class JukeBox extends JavaPlugin implements Listener{
 	public static String descriptionFormatWithoutAuthor;
 	public static boolean savePlayerDatas = true;
 	public static int fadeInDuration, fadeOutDuration;
-	public static boolean useExtendedOctaveRange = false;
+	public static boolean useExtendedOctaveRange = true;
 	public static boolean forceMono = false;
+	public static boolean adminCommandFeedback = true;
 
 	public ItemStack jukeboxItem;
 
@@ -195,6 +196,7 @@ public class JukeBox extends JavaPlugin implements Listener{
 		fadeOutDuration = config.getInt("fadeOutDuration");
 		useExtendedOctaveRange = config.getBoolean("useExtendedOctaveRange");
 		forceMono = config.getBoolean("forceMono");
+		adminCommandFeedback = config.getBoolean("admin-command-feedback", true);
 
 		worldsEnabled = config.getStringList("enabledWorlds");
 		worlds = !worldsEnabled.isEmpty();
@@ -634,3 +636,4 @@ public class JukeBox extends JavaPlugin implements Listener{
 	}
 
 }
+

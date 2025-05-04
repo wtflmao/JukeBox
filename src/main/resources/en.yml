@@ -1,7 +1,6 @@
 PLAYER_VOLUME: '§bYour player volume is currently set to {VOLUME}%'
 PLAYER_VOLUME_CHANGED: '§bPlayer volume set to {VOLUME}%'
 
-# Added translations for default playlist
 DEFAULT_PLAYLIST_EMPTY: '§cThe default server playlist is currently empty.'
 PLAYLIST_RESET_SUCCESS: '§aYour playlist has been reset to the server default.'
 DEFAULT_PLAYLIST_LIST_HEADER: '§6--- Default Playlist Songs ---'
@@ -28,7 +27,11 @@ GUI_BACK_BUTTON: '§cBack'
 GUI_PLAYLIST_ITEM_NAME: '§b[{ID}] {NAME}'
 GUI_PLAYLIST_ITEM_LORE_ACTION: '§eLeft-click to view songs'
 GUI_SONG_ITEM_NAME: '§e[{SUB_ID}] {NAME}'
-CLI_PLAY_USAGE: '§cUsage: /amusic play <player> <list_id> <song_id>'
+CLI_PLAY_USAGE: '§cUsage: /amusic play <player> <list_id> [song_id|random]'
 CLI_PLAY_INVALID_LIST_ID: '§cInvalid List ID: {ID}. Must be between 1 and {MAX}.'
 CLI_PLAY_INVALID_SUB_ID: '§cInvalid Song ID: {ID} for playlist {PLAYLIST}. Must be between 1 and {MAX}.'
-CLI_PLAY_SUCCESS: '§aPlaying song {SONG} for player {PLAYER}.' 
+CLI_PLAY_SUCCESS: '§aPlaying song {SONG} for player {PLAYER}.'
+GUI_RANDOM_THIS_PLAYLIST_BUTTON: '§bRandom play this list'
+CLI_PLAY_RANDOM_SUCCESS: '§aPlaying playlist {PLAYLIST} randomly for player {PLAYER}.'
+GUI_RANDOM_STARTED_WITH: "§aRandom play started. First song: §e[{SUB_ID}] {SONG}"
+CLI_RANDOM_STARTED_WITH: "§aStarted random play for player {PLAYER}. First song: §e[{SUB_ID}] {SONG}" 

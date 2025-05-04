@@ -94,10 +94,18 @@ public class Lang{
 	public static String GUI_PLAYLIST_ITEM_NAME = "§b[{ID}] {NAME}";
 	public static String GUI_PLAYLIST_ITEM_LORE_ACTION = "§eLeft-click to view songs"; // Replaces old PLAYLIST_ITEM_LORE_ACTION
 	public static String GUI_SONG_ITEM_NAME = "§e[{SUB_ID}] {NAME}";
-	public static String CLI_PLAY_USAGE = "§cUsage: /amusic play <player> <list_id> <song_id>";
+	public static String CLI_PLAY_USAGE = "§cUsage: /amusic play <player> <list_id> [song_id|random]";
 	public static String CLI_PLAY_INVALID_LIST_ID = "§cInvalid List ID: {ID}. Must be between 1 and {MAX}";
 	public static String CLI_PLAY_INVALID_SUB_ID = "§cInvalid Song ID: {ID} for playlist '{PLAYLIST}'. Must be between 1 and {MAX}";
 	public static String CLI_PLAY_SUCCESS = "§aPlaying song '§e{SONG}§a' for player '§e{PLAYER}§a'.";
+	public static String GUI_RANDOM_THIS_PLAYLIST_BUTTON = "§bRandom play this list";
+
+	// Added key for CLI random play success (edit 4)
+	public static String CLI_PLAY_RANDOM_SUCCESS = "§aPlaying playlist '§e{PLAYLIST}§a' randomly for player '§e{PLAYER}§a'.";
+
+	// Added keys for random start feedback (edit 5)
+	public static String GUI_RANDOM_STARTED_WITH = "§aRandom play started. First song: §e[{SUB_ID}] {SONG}";
+	public static String CLI_RANDOM_STARTED_WITH = "§aStarted random play for player '{PLAYER}'. First song: §e[{SUB_ID}] {SONG}";
 
 	public static void saveFile(YamlConfiguration cfg, File file) throws ReflectiveOperationException, IOException {
 		for (Field f : Lang.class.getDeclaredFields()){

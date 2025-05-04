@@ -77,10 +77,15 @@ fadeInDuration: 0
 fadeOutDuration: 20
 
 # decides whether JukeBox will enable the "extended notes range through resource pack" option of NoteBlockAPI
-useExtendedOctaveRange: false
+useExtendedOctaveRange: true
 
 # should JukeBox enforce the mono playback for stereo songs
 forceMono: false
+
+# Whether to send feedback messages to admins when executing /amusic play command
+# (e.g. "Playing song X for player Y" or "Started random play for player Y, first song Z")
+# Default: true
+admin-command-feedback: true
 
 # database configuration
 database:
@@ -99,5 +104,5 @@ defaultPlayerOptions:
   volume: 70
   join: false
   shuffle: false
-  particles: false
+  particles: true
   repeat: false

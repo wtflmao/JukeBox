@@ -52,7 +52,6 @@ TOGGLE_REPEAT_ON: '§e单曲循环已启用。'
 TOGGLE_REPEAT_OFF: '§e单曲循环已禁用。'
 PLAYER_VOLUME: '§b你的播放音量当前为 {VOLUME}%'
 PLAYER_VOLUME_CHANGED: '§b播放音量已设为 {VOLUME}%'
-# 添加默认播放列表功能的翻译
 DEFAULT_PLAYLIST_EMPTY: '§c服务器默认播放列表当前为空。'
 PLAYLIST_RESET_SUCCESS: '§a你的播放列表已重置为服务器默认设置。'
 DEFAULT_PLAYLIST_LIST_HEADER: '§6--- 默认播放列表歌曲 ---'
@@ -78,8 +77,12 @@ GUI_BACK_BUTTON: '§c返回'
 GUI_PLAYLIST_ITEM_NAME: '§b[{ID}] {NAME}'
 GUI_PLAYLIST_ITEM_LORE_ACTION: '§e左键查看歌曲列表'
 GUI_SONG_ITEM_NAME: '§e[{SUB_ID}] {NAME}'
-CLI_PLAY_USAGE: '§c用法: /amusic play <玩家> <列表ID> <歌曲ID>'
+CLI_PLAY_USAGE: '§c用法: /amusic play <玩家> <列表ID> [歌曲ID|random]'
 CLI_PLAY_INVALID_LIST_ID: '§c无效的列表 ID: {ID}。必须在 1 和 {MAX} 之间。'
 CLI_PLAY_INVALID_SUB_ID: '§c对于歌单 {PLAYLIST} 的歌曲 ID 无效: {ID}。必须在 1 和 {MAX} 之间。'
 CLI_PLAY_SUCCESS: '§a正在为玩家 {PLAYER} 播放歌曲 {SONG}。'
+GUI_RANDOM_THIS_PLAYLIST_BUTTON: '§b随机播放此歌单'
+CLI_PLAY_RANDOM_SUCCESS: '§a正在为玩家 {PLAYER} 随机播放歌单 {PLAYLIST}。'
+GUI_RANDOM_STARTED_WITH: "§a随机播放已开始，第一首为: §e[{SUB_ID}] {SONG}"
+CLI_RANDOM_STARTED_WITH: "§a已为玩家 {PLAYER} 启动随机播放，第一首为: §e[{SUB_ID}] {SONG}"
 # Translated by hhzm

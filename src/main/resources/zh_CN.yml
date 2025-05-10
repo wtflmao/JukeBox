@@ -83,6 +83,14 @@ CLI_PLAY_INVALID_SUB_ID: '§c对于歌单 {PLAYLIST} 的歌曲 ID 无效: {ID}�
 CLI_PLAY_SUCCESS: '§a正在为玩家 {PLAYER} 播放歌曲 {SONG}。'
 GUI_RANDOM_THIS_PLAYLIST_BUTTON: '§b随机播放此歌单'
 CLI_PLAY_RANDOM_SUCCESS: '§a正在为玩家 {PLAYER} 随机播放歌单 {PLAYLIST}。'
-GUI_RANDOM_STARTED_WITH: "§a随机播放已开始，第一首为: §e[{SUB_ID}] {SONG}"
-CLI_RANDOM_STARTED_WITH: "§a已为玩家 {PLAYER} 启动随机播放，第一首为: §e[{SUB_ID}] {SONG}"
+GUI_RANDOM_STARTED_WITH: '§a随机播放已开始，第一首为: §e[{SUB_ID}] {SONG}'
+CLI_RANDOM_STARTED_WITH: '§a已为玩家 {PLAYER} 启动随机播放，第一首为: §e[{SUB_ID}] {SONG}'
+SELECTOR_S_NOT_PLAYER: '§c错误: @s 选择器只能由玩家使用。'
+SELECTOR_P_NO_PLAYER_NEARBY: '§c错误: @p 选择器附近找不到任何玩家。'
+SELECTOR_P_CONSOLE_UNSUPPORTED: '§c错误: @p 选择器不能从控制台使用。'
+SELECTOR_A_NO_PLAYERS_ONLINE: '§e提示: 当前没有玩家在线。'
+UNKNOWN_PLAYER_SELECTOR: '§c错误: 找不到与选择器 {SELECTOR} 匹配的玩家或无效的选择器。'
+CLI_PLAY_MULTIPLE_SUCCESS: '§a正在为 §e{COUNT}§a 名玩家播放歌曲 §e{SONG}§a。'
+CLI_PLAY_RANDOM_MULTIPLE_SUCCESS: '§a正在为 §e{COUNT}§a 名玩家随机播放歌单 §e{PLAYLIST}§a。'
+TOGGLE_MULTIPLE_SUCCESS: '§a已为 §e{COUNT}§a/§e{TOTAL}§a 名玩家切换播放状态。'
 # Translated by hhzm

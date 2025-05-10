@@ -32,7 +32,7 @@ public class CommandMusic implements CommandExecutor{
 			if (!p.hasPermission("music.command.resetplaylist")) {
 				JukeBox.sendMessage(p, Lang.NOPERM);
 				return true;
-			}
+		}
 			resetPlaylist(p, pdata);
 		} else {
 			open(p, pdata);

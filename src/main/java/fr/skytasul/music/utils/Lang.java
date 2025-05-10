@@ -106,6 +106,16 @@ public class Lang{
 	// Added keys for random start feedback (edit 5)
 	public static String GUI_RANDOM_STARTED_WITH = "§aRandom play started. First song: §e[{SUB_ID}] {SONG}";
 	public static String CLI_RANDOM_STARTED_WITH = "§aStarted random play for player '{PLAYER}'. First song: §e[{SUB_ID}] {SONG}";
+	
+	// Added keys for selector support
+	public static String SELECTOR_S_NOT_PLAYER = "§cError: @s selector can only be used by a player.";
+	public static String SELECTOR_P_NO_PLAYER_NEARBY = "§cError: No player found nearby for @p selector.";
+	public static String SELECTOR_P_CONSOLE_UNSUPPORTED = "§cError: @p selector cannot be used from console.";
+	public static String SELECTOR_A_NO_PLAYERS_ONLINE = "§eNote: No players are currently online.";
+	public static String UNKNOWN_PLAYER_SELECTOR = "§cError: No player found matching selector '{SELECTOR}' or invalid selector.";
+	public static String CLI_PLAY_MULTIPLE_SUCCESS = "§aPlaying song '§e{SONG}§a' for §e{COUNT}§a players.";
+	public static String CLI_PLAY_RANDOM_MULTIPLE_SUCCESS = "§aPlaying playlist '§e{PLAYLIST}§a' randomly for §e{COUNT}§a players.";
+	public static String TOGGLE_MULTIPLE_SUCCESS = "§aToggled playback for §e{COUNT}§a/§e{TOTAL}§a players.";
 
 	public static void saveFile(YamlConfiguration cfg, File file) throws ReflectiveOperationException, IOException {
 		for (Field f : Lang.class.getDeclaredFields()){

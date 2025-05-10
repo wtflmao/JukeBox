@@ -33,5 +33,14 @@ CLI_PLAY_INVALID_SUB_ID: '§cInvalid Song ID: {ID} for playlist {PLAYLIST}. Must
 CLI_PLAY_SUCCESS: '§aPlaying song {SONG} for player {PLAYER}.'
 GUI_RANDOM_THIS_PLAYLIST_BUTTON: '§bRandom play this list'
 CLI_PLAY_RANDOM_SUCCESS: '§aPlaying playlist {PLAYLIST} randomly for player {PLAYER}.'
-GUI_RANDOM_STARTED_WITH: "§aRandom play started. First song: §e[{SUB_ID}] {SONG}"
-CLI_RANDOM_STARTED_WITH: "§aStarted random play for player {PLAYER}. First song: §e[{SUB_ID}] {SONG}" 
+GUI_RANDOM_STARTED_WITH: '§aRandom play started. First song: §e[{SUB_ID}] {SONG}'
+CLI_RANDOM_STARTED_WITH: '§aStarted random play for player {PLAYER}. First song: §e[{SUB_ID}] {SONG}'
+SELECTOR_S_NOT_PLAYER: '§cError: @s selector can only be used by a player.'
+SELECTOR_P_NO_PLAYER_NEARBY: '§cError: No player found nearby for @p selector.'
+SELECTOR_P_CONSOLE_UNSUPPORTED: '§cError: @p selector cannot be used from console.'
+SELECTOR_A_NO_PLAYERS_ONLINE: '§eNote: No players are currently online.'
+UNKNOWN_PLAYER_SELECTOR: '§cError: No player found matching selector {SELECTOR} or invalid selector.'
+CLI_PLAY_MULTIPLE_SUCCESS: '§aPlaying song {SONG} for {COUNT} players.'
+CLI_PLAY_RANDOM_MULTIPLE_SUCCESS: '§aPlaying playlist §e{PLAYLIST}§a randomly for §e{COUNT}§a players.'
+TOGGLE_MULTIPLE_SUCCESS: '§aToggled playback for §e{COUNT}§a/§e{TOTAL}§a players.' 
+# by hhzm

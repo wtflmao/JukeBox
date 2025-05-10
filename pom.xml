@@ -4,7 +4,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>fr.skytasul</groupId>
 	<artifactId>jukebox</artifactId>
-	<version>1.20.18-JK-rewritten</version>
+	<version>1.20.13-JK-rewritten-6</version>
 	<name>JukeBox-JK-rewritten</name>
 
 	<properties>

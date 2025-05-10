@@ -75,8 +75,8 @@ public class JukeBoxInventory implements Listener{
 		Random ran = new Random();
 		discs = new Material[JukeBox.getSongs().size()];
 		if (!JukeBox.songItems.isEmpty()) {
-			for (int i = 0; i < discs.length; i++){
-				discs[i] = JukeBox.songItems.get(ran.nextInt(JukeBox.songItems.size()));
+		for (int i = 0; i < discs.length; i++){
+			discs[i] = JukeBox.songItems.get(ran.nextInt(JukeBox.songItems.size()));
 			}
 		}
 
@@ -165,7 +165,7 @@ public class JukeBoxInventory implements Listener{
 			String author = song.getAuthor();
 			if (author != null && !author.isEmpty()) {
 				lore.add("§7Author: §f" + author);
-			}
+		}
 			String description = song.getDescription();
 			if (description != null && !description.isEmpty()) {
 				lore.addAll(splitOnSpace("§7Desc: §f" + description, 30));
@@ -289,7 +289,7 @@ public class JukeBoxInventory implements Listener{
 					songListPage++;
 				} else if (slot == 52 && songListPage > 0) {
 					songListPage--;
-				}
+			}
 				setSongListPage(p);
 			} else if (slot >= 45) {
 				handleBottomMenuClick(p, slot, clickedItem, e.getClick());
@@ -305,38 +305,38 @@ public class JukeBoxInventory implements Listener{
 	}
 
 	private void handleBottomMenuClick(Player p, int slot, ItemStack clickedItem, ClickType click) {
-		if (slot == 45) {
+			if (slot == 45) {
 			if (currentView == ItemsMenu.PLAYLIST_LIST) {
-				pdata.stopPlaying(true);
+					pdata.stopPlaying(true);
 				setItemsMenu(p);
 			} else if (currentView == ItemsMenu.OPTIONS || currentView == ItemsMenu.PLAYLIST) {
 				currentView = ItemsMenu.PLAYLIST_LIST;
 				setPlaylistListPage(p);
+				}
+				return;
 			}
-			return;
-		}
 
-		switch (slot) {
-		case 46:
+				switch (slot) {
+				case 46:
 			if (currentView == ItemsMenu.PLAYLIST_LIST || currentView == ItemsMenu.SONG_LIST) {
-				pdata.togglePlaying();
+					pdata.togglePlaying();
 				setItemsMenu(p);
-			}
-			break;
-		case 47:
+				}
+				break;
+				case 47:
 			if (currentView == ItemsMenu.PLAYLIST_LIST) {
 				pdata.playRandom();
 			} else if (currentView == ItemsMenu.OPTIONS) {
 				if (click == ClickType.RIGHT) pdata.setVolume((byte) (pdata.getVolume() - 10));
 				if (click == ClickType.LEFT) pdata.setVolume((byte) (pdata.getVolume() + 10));
-				if (pdata.getVolume() < 0) pdata.setVolume((byte) 0);
-				if (pdata.getVolume() > 100) pdata.setVolume((byte) 100);
+					if (pdata.getVolume() < 0) pdata.setVolume((byte) 0);
+					if (pdata.getVolume() > 100) pdata.setVolume((byte) 100);
 				volumeItem();
 			} else if (currentView == ItemsMenu.PLAYLIST) {
 				pdata.nextSong();
 			}
-			break;
-		case 48:
+					break;
+				case 48:
 			if (currentView == ItemsMenu.SONG_LIST) {
 				if (viewingPlaylistName != null) {
 					List<Song> sortedSongsToPlay = JukeBox.getDirectoryPlaylists().get(viewingPlaylistName);
@@ -359,22 +359,22 @@ public class JukeBoxInventory implements Listener{
 					JukeBox.sendMessage(p, "§cError: No playlist selected.");
 				}
 			} else if (currentView == ItemsMenu.OPTIONS) {
-				pdata.setParticles(!pdata.hasParticles());
+					pdata.setParticles(!pdata.hasParticles());
 				particlesItem();
 			} else if (currentView == ItemsMenu.PLAYLIST) {
 				pdata.clearPlaylist();
 			}
-			break;
-		case 49:
+					break;
+				case 49:
 			if (currentView == ItemsMenu.PLAYLIST_LIST) {
 				currentView = ItemsMenu.PLAYLIST;
 				setItemsMenu(p);
 			} else if (currentView == ItemsMenu.OPTIONS) {
-				if (!JukeBox.autoJoin) pdata.setJoinMusic(!pdata.hasJoinMusic());
+					if (!JukeBox.autoJoin) pdata.setJoinMusic(!pdata.hasJoinMusic());
 				joinItem();
-			}
-			break;
-		case 50:
+				}
+				break;
+				case 50:
 			if (currentView == ItemsMenu.PLAYLIST_LIST) {
 				currentView = ItemsMenu.OPTIONS;
 				setItemsMenu(p);
@@ -382,10 +382,10 @@ public class JukeBoxInventory implements Listener{
 				pdata.setShuffle(!pdata.isShuffle());
 				shuffleItem();
 			} else if (currentView == ItemsMenu.PLAYLIST) {
-				pdata.nextPlaylist();
+					pdata.nextPlaylist();
 				playlistItem();
-			}
-			break;
+				}
+				break;
 		case 51:
 			if (currentView == ItemsMenu.OPTIONS) {
 				pdata.setRepeat(!pdata.isRepeatEnabled());

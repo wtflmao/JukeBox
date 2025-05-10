@@ -139,8 +139,11 @@ public class PlayerData implements Listener{
 		}
 		if (songPlayer != null) stopPlaying(false);
 		if (song == null) return false;
-		addSong(song, true);
-		return listening == Playlists.FAVORITES;
+		
+		// 创建单曲播放列表直接播放选择的歌曲，而不是通过addSong添加到现有播放列表
+		Playlist singleSongPlaylist = new Playlist(song);
+		playList(singleSongPlaylist);
+		return true;
 	}
 
 	public boolean addSong(Song song, boolean playIndex) {

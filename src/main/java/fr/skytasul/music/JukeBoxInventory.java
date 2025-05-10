@@ -192,7 +192,7 @@ public class JukeBoxInventory implements Listener{
 		case SONG_LIST:
 			inv.setItem(45, BACK_BUTTON_ITEM);
 			inv.setItem(46, stopItem);
-			if (pdata.isListening()) inv.setItem(47, toggleItem);
+			if (pdata.isListening()) inv.setItem(46, toggleItem);
 			if (viewingPlaylistName != null) {
 				List<Song> songsInList = JukeBox.getDirectoryPlaylists().get(viewingPlaylistName);
 				if (songsInList != null && !songsInList.isEmpty()) {
@@ -318,10 +318,17 @@ public class JukeBoxInventory implements Listener{
 
 				switch (slot) {
 				case 46:
-			if (currentView == ItemsMenu.PLAYLIST_LIST || currentView == ItemsMenu.SONG_LIST) {
+			if (currentView == ItemsMenu.PLAYLIST_LIST) {
 					pdata.togglePlaying();
 				setItemsMenu(p);
+			} else if (currentView == ItemsMenu.SONG_LIST) {
+				if (pdata.isListening()) {
+					pdata.togglePlaying();
+				} else {
+					pdata.stopPlaying(true);
 				}
+				setItemsMenu(p);
+			}
 				break;
 				case 47:
 			if (currentView == ItemsMenu.PLAYLIST_LIST) {

@@ -327,7 +327,7 @@ public class JukeBoxInventory implements Listener{
 					pdata.stopPlaying(true);
 				}
 				setItemsMenu(p);
-			}
+				}
 				break;
 				case 47:
 			if (currentView == ItemsMenu.PLAYLIST_LIST) {

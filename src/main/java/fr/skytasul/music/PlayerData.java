@@ -4,6 +4,7 @@ import com.xxmicloxx.NoteBlockAPI.NoteBlockAPI;
 import com.xxmicloxx.NoteBlockAPI.event.SongDestroyingEvent;
 import com.xxmicloxx.NoteBlockAPI.event.SongLoopEvent;
 import com.xxmicloxx.NoteBlockAPI.event.SongNextEvent;
+import com.xxmicloxx.NoteBlockAPI.event.SongEndEvent;
 import com.xxmicloxx.NoteBlockAPI.model.FadeType;
 import com.xxmicloxx.NoteBlockAPI.model.Playlist;
 import com.xxmicloxx.NoteBlockAPI.model.RepeatMode;
@@ -18,6 +19,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerQuitEvent;
 import java.util.*;
 import java.util.stream.Collectors;
+import org.bukkit.ChatColor;
 
 public class PlayerData implements Listener{
 
@@ -44,6 +46,12 @@ public class PlayerData implements Listener{
 	private static final long RECENTLY_PLAYED_EXPIRY_MS = 30 * 60 * 1000; // 30 minutes
 	private static final double RECENTLY_PLAYED_FULL_THRESHOLD = 0.85; // 85%
 	private Map<String, Map<Song, Long>> recentlyPlayedTracker = new HashMap<>();
+
+	// Added: Fields for smart random continuous playback session management
+	private List<Song> currentSmartRandomSongList = null;
+	private String currentSmartRandomPlaylistName = null;
+	private boolean isSmartRandomSessionActive = false;
+	private boolean currentUserWantsRepeatAllForSmartRandom = false;
 
 	PlayerData(UUID id) {
 		this.id = id;
@@ -73,7 +81,16 @@ public class PlayerData implements Listener{
 	public void onSongDestroy(SongDestroyingEvent e) {
 		if (e.getSongPlayer() == songPlayer) {
 			if (linked != null) linked.playingStopped();
-			songPlayer = null;
+			
+			// If a smart random session was active and hasn't been properly terminated 
+			// (e.g. onSongEnd didn't start a new song, or stopPlaying wasn't called prior to destruction),
+			// ensure flags are cleared.
+			if (this.isSmartRandomSessionActive) {
+				JukeBox.getInstance().getLogger().info("SongDestroyingEvent: Smart random session was still marked active for player " + getID() + ". Clearing flags.");
+				clearSmartRandomSessionFlags();
+			}
+			this.songPlayer = null; // Now set to null
+
 			if (favoritesRemoved){
 				favoritesRemoved = false;
 				if (listening == Playlists.FAVORITES && favorites != null){
@@ -95,12 +112,72 @@ public class PlayerData implements Listener{
 	}
 
 	@EventHandler
-	public void onSongNext(SongNextEvent e){
-		if (e.getSongPlayer() == songPlayer){
-			if (listening == Playlists.PLAYLIST && !shuffle){
-				stopPlaying(false);
-			}else playSong(true);
+	public void onSongEnd(SongEndEvent e) {
+		if (e.getSongPlayer() != this.songPlayer || !this.isSmartRandomSessionActive) {
+			// JukeBox.getInstance().getLogger().info("[DEBUG] onSongEnd: Not for current smart session or not active.");
+			return;
 		}
+
+		// This song has ended, and it was part of an active smart random session.
+		// SongPlayer is likely auto-destroying due to setAutoDestroy(true) and RepeatMode.NO on a single-song playlist.
+		// We need to decide the next song and start a new player for it.
+		// Note: The old songPlayer instance referenced by 'this.songPlayer' will be invalid after this event if autoDestroy was true.
+
+		Song nextSong = getSmartRandomSongFromDirectory(this.currentSmartRandomSongList, this.currentSmartRandomPlaylistName);
+
+		if (nextSong != null) {
+			// JukeBox.getInstance().getLogger().info("[DEBUG] onSongEnd: Found next smart song: " + JukeBox.getInternal(nextSong));
+			playNextSmartRandomSong(nextSong, false); // false because this is not an admin play
+		} else {
+			// No next song available from smart random logic
+			// JukeBox.getInstance().getLogger().info("[DEBUG] onSongEnd: No next smart song initially. Checking repeat...");
+			if (this.currentUserWantsRepeatAllForSmartRandom) {
+				JukeBox.getInstance().getLogger().info("Smart random playlist '" + this.currentSmartRandomPlaylistName + "' for player " + getID() + " finished. Attempting to repeat (clearing recently played).");
+				Map<Song, Long> specificTracker = recentlyPlayedTracker.get(this.currentSmartRandomPlaylistName);
+				if (specificTracker != null) {
+					specificTracker.clear();
+				}
+				nextSong = getSmartRandomSongFromDirectory(this.currentSmartRandomSongList, this.currentSmartRandomPlaylistName);
+				if (nextSong != null) {
+					// JukeBox.getInstance().getLogger().info("[DEBUG] onSongEnd: Found next smart song after repeat: " + JukeBox.getInternal(nextSong));
+					playNextSmartRandomSong(nextSong, false); // false because this is not an admin play
+				} else {
+					JukeBox.getInstance().getLogger().info("Smart random playlist '" + this.currentSmartRandomPlaylistName + "' for player " + getID() + " still has no songs after attempting repeat. Session ending.");
+					// Session will be marked inactive by onSongDestroy or if stopPlaying was called before.
+					// No new player started, so session effectively ends.
+					// Explicitly clear flags here if onSongDestroy might not catch it due to player already being null by then.
+					clearSmartRandomSessionFlags();
+				}
+			} else {
+				JukeBox.getInstance().getLogger().info("Smart random playlist '" + this.currentSmartRandomPlaylistName + "' for player " + getID() + " finished and repeat is off. Session ending.");
+				// Session will be marked inactive by onSongDestroy or if stopPlaying was called before.
+				// No new player started, so session effectively ends.
+				clearSmartRandomSessionFlags();
+			}
+		}
+	}
+
+	@EventHandler
+	public void onSongNext(SongNextEvent e){
+		// This event is for when a SongPlayer with a multi-song playlist goes to the next song internally.
+		// Since our smart random plays single-song playlists and restarts player via onSongEnd,
+		// this handler should primarily deal with other playback modes (e.g. favorites if it were a list, radio).
+		if (e.getSongPlayer() != this.songPlayer) return;
+
+		if (this.isSmartRandomSessionActive) {
+			// This should ideally not be hit if smart random is active because we use single song playlists
+			// and onSongEnd handles the transition. If it is hit, something is unexpected.
+			JukeBox.getInstance().getLogger().warning("[JukeBox PlayerData] onSongNext triggered for player " + getID() + " while isSmartRandomSessionActive=true. This is unexpected. Stopping session.");
+			stopPlaying(false);
+			clearSmartRandomSessionFlags();
+			return;
+		}
+
+		// Default behavior for non-smart-random sessions (e.g. favorites, radio, or direct playSong calls)
+		// This was the old logic from onSongNext, ensure it's still valid for other modes.
+		if (listening == Playlists.PLAYLIST && !shuffle){ 
+			stopPlaying(false); // If it's a non-shuffled, non-smart "PLAYLIST" type, it stops after one song.
+		} else playSong(true); // playSong(true) is the old logic for next song in other modes (e.g. shuffled favorites)
 	}
 
 	@EventHandler
@@ -232,23 +309,29 @@ public class PlayerData implements Listener{
 		if (JukeBox.getSongs().isEmpty()) return null;
 		setPlaylist(Playlists.PLAYLIST, false);
 		Song song = JukeBox.randomSong();
+
+		Player playerForLog = getPlayer(); 
+		if (playerForLog != null && song != null) { 
+		    String songIdentifier = JukeBox.getInternal(song); 
+		    if (songIdentifier == null || songIdentifier.isEmpty()) songIdentifier = song.getPath().getName(); 
+		    JukeBox.getInstance().getLogger().info("RandomPlay: Playing " + songIdentifier + " for " + playerForLog.getName()); 
+		}
+		// For playRandom(), ensure any smart session is terminated.
+		clearSmartRandomSessionFlags(); 
 		playSong(song);
 		return song;
 	}
 
 	public void stopPlaying(boolean msg) {
-		if (songPlayer == null) {
-			if (listening == Playlists.RADIO) {
-				JukeBox.radio.leave(getPlayer());
-				this.listening = Playlists.PLAYLIST;
-				setPlaylist(listening, false);
-			}
-			return;
-		}
-		CustomSongPlayer tmp = songPlayer;
-		this.songPlayer = null;
-		tmp.destroy();
-		if (msg && p != null && p.isOnline()) JukeBox.sendMessage(getPlayer(), Lang.MUSIC_STOPPED);
+		// Clear smart random session flags BEFORE destroying the song player
+		clearSmartRandomSessionFlags();
+
+		if (songPlayer != null){
+			songPlayer.setPlaying(false);
+			songPlayer.destroy();
+			songPlayer = null;
+			if (msg) JukeBox.sendMessage(getPlayer(), Lang.MUSIC_STOPPED);
+		}else if (msg) JukeBox.sendMessage(getPlayer(), "§c§oNo music playing.");
 		if (linked != null) linked.playingStopped();
 	}
 
@@ -529,24 +612,26 @@ public class PlayerData implements Listener{
 		return pdata;
 	}
 
-	// Modified: Updated to use smart random selection
+	// Modified: Updated to use smart random selection and continuous play via SongNextEvent
 	public void playDirectoryPlaylist(List<Song> songsToPlay, String directoryName) {
 		stopPlaying(false); // Stop any current music
+
 		if (songsToPlay == null || songsToPlay.isEmpty()) {
 			JukeBox.sendMessage(getPlayer(), Lang.NO_SONG_AVAILABLE_IN_PLAYLIST.replace("{PLAYLIST}", directoryName));
 			return;
 		}
 
-		Song selectedSong = getSmartRandomSongFromDirectory(songsToPlay, directoryName);
-		if (selectedSong == null) {
+		Song firstSong = getSmartRandomSongFromDirectory(new ArrayList<>(songsToPlay), directoryName); // Pass a copy
+
+		if (firstSong == null) {
 			JukeBox.sendMessage(getPlayer(), Lang.NO_SONG_AVAILABLE_IN_PLAYLIST.replace("{PLAYLIST}", directoryName));
 			return;
 		}
 
-		Playlist playlistToPlay = new Playlist(selectedSong);
-		this.listening = Playlists.PLAYLIST;
+		Playlist initialPlaylist = new Playlist(firstSong);
+		this.listening = Playlists.PLAYLIST; // Keep this to signify it's not favorites/radio for other logic if any
 
-		songPlayer = new CustomSongPlayer(playlistToPlay);
+		songPlayer = new CustomSongPlayer(initialPlaylist);
 		songPlayer.setParticlesEnabled(particles);
 		songPlayer.getFadeIn().setFadeDuration(JukeBox.fadeInDuration);
 		if (JukeBox.fadeInDuration != 0) songPlayer.getFadeIn().setType(FadeType.LINEAR);
@@ -554,13 +639,56 @@ public class PlayerData implements Listener{
 		if (JukeBox.fadeOutDuration != 0) songPlayer.getFadeOut().setType(FadeType.LINEAR);
 		songPlayer.setAutoDestroy(true);
 		songPlayer.addPlayer(getPlayer());
-		songPlayer.setRepeatMode(repeat ? RepeatMode.ONE : RepeatMode.NO);
+		songPlayer.setRepeatMode(RepeatMode.NO); // We handle next song and repeat via SongNextEvent
+		// songPlayer.setRandom(false); // No longer needed, we are not passing the full list here initially
+
+		// Set state for smart random session
+		this.currentSmartRandomSongList = new ArrayList<>(songsToPlay);
+		this.currentSmartRandomPlaylistName = directoryName;
+		this.isSmartRandomSessionActive = true;
+		this.currentUserWantsRepeatAllForSmartRandom = this.repeat; // Player's 'repeat' flag now means repeat entire smart random list
+
 		songPlayer.setPlaying(true);
 
 		if (JukeBox.getInstance().stopVanillaMusic != null) JukeBox.getInstance().stopVanillaMusic.accept(p);
-		JukeBox.sendMessage(getPlayer(), Lang.NOW_PLAYING_SONG_FROM
-				.replace("{SONG}", JukeBox.getSongName(selectedSong))
-				.replace("{PLAYLIST}", directoryName));
+
+		Player playerForLog = getPlayer(); 
+		if (playerForLog != null && firstSong != null) { 
+		    String songIdentifier = JukeBox.getInternal(firstSong); 
+		    if (songIdentifier == null || songIdentifier.isEmpty()) songIdentifier = firstSong.getPath().getName(); 
+		    JukeBox.getInstance().getLogger().info("RandomPlay: Playing " + songIdentifier + " for " + playerForLog.getName() + " (Smart Random Start)");
+		}
+
+		String messageFormat = Lang.NOW_PLAYING_SONG_FROM;
+		Player player = getPlayer(); 
+		if (messageFormat == null) {
+		    JukeBox.getInstance().getLogger().severe("CRITICAL: Lang.NOW_PLAYING_SONG_FROM is null when trying to send play message for playlist '" + directoryName + "' to player " + (player != null ? player.getName() : "UNKNOWN_PLAYER") + ". This indicates a problem with language file loading or initialization. Please check plugin startup logs and language files (e.g., en.yml, zh_CN.yml). Falling back to a default message.");
+		    // Attempt to log which language is configured to help debug
+		    String configuredLang = "UNKNOWN (config not accessible)";
+		    JukeBox mainPlugin = JukeBox.getInstance();
+		    if (mainPlugin != null && mainPlugin.getConfig() != null) {
+		        configuredLang = mainPlugin.getConfig().getString("lang", "en (default)");
+		    }
+		    JukeBox.getInstance().getLogger().severe("Configured language: " + configuredLang);
+
+		    // Also log the state of a few other Lang keys to see if they are also null
+		    // Adding null checks for Lang fields themselves before accessing them for logging, just in case.
+		    String stopKeyVal = (Lang.STOP == null) ? "null" : Lang.STOP;
+		    String randomMusicKeyVal = (Lang.RANDOM_MUSIC == null) ? "null" : Lang.RANDOM_MUSIC;
+		    String nextPageKeyVal = (Lang.NEXT_PAGE == null) ? "null" : Lang.NEXT_PAGE;
+		    JukeBox.getInstance().getLogger().severe("Debug Lang Keys: STOP = " + stopKeyVal + ", RANDOM_MUSIC = " + randomMusicKeyVal + ", NEXT_PAGE = " + nextPageKeyVal);
+
+		    messageFormat = "&6Now playing: &e{SONG} &6from playlist &e{PLAYLIST}&6. (LANG_ERR: NOW_PLAYING_SONG_FROM_MISSING)"; // Default fallback with error indicator
+		}
+
+		String message = ChatColor.translateAlternateColorCodes('&', messageFormat)
+		        .replace("{SONG}", JukeBox.getSongName(firstSong))
+		        .replace("{PLAYLIST}", directoryName);
+		if (player != null) { // Check if player is still valid
+		    JukeBox.sendMessage(player, message);
+		} else {
+		    JukeBox.getInstance().getLogger().warning("Player object was null when trying to send play message for playlist '" + directoryName + "'. Message was: " + message);
+		}
 
 		if (linked != null) linked.playingStarted();
 	}
@@ -607,36 +735,115 @@ public class PlayerData implements Listener{
 		return null;
 	}
 
-	// Added: Method for admin-triggered random play
+	// Added: Method for admin-triggered random play, now supports smart continuous play
+	// Modified: Now plays only a single smart random song and does not start a continuous session.
 	public boolean playRandomSongFromDirectoryForAdmin(List<Song> songsInDirectory, String directoryName) {
-		Song selectedSong = getSmartRandomSongFromDirectory(songsInDirectory, directoryName);
-		if (selectedSong == null) {
-			return false;
+		stopPlaying(false); // Stop any current music
+
+		if (songsInDirectory == null || songsInDirectory.isEmpty()) {
+			return false; // Admin command typically gives feedback via CommandAdmin
 		}
 
-		stopPlaying(false);
-		Playlist playlistToPlay = new Playlist(selectedSong);
+		// Ensure any previous smart session is cleared before starting a new admin play, 
+		// even if it's a single song, to prevent unexpected interactions if player state was somehow corrupted.
+		clearSmartRandomSessionFlags();
+
+		Song firstSong = getSmartRandomSongFromDirectory(new ArrayList<>(songsInDirectory), directoryName); // Pass a copy
+
+		if (firstSong == null) {
+			return false; // No song available
+		}
+
+		Playlist initialPlaylist = new Playlist(firstSong);
 		this.listening = Playlists.PLAYLIST;
 
-		songPlayer = new CustomSongPlayer(playlistToPlay);
-		songPlayer.setParticlesEnabled(particles);
+		songPlayer = new CustomSongPlayer(initialPlaylist);
+		songPlayer.setParticlesEnabled(particles); 
 		songPlayer.getFadeIn().setFadeDuration(JukeBox.fadeInDuration);
 		if (JukeBox.fadeInDuration != 0) songPlayer.getFadeIn().setType(FadeType.LINEAR);
 		songPlayer.getFadeOut().setFadeDuration(JukeBox.fadeOutDuration);
 		if (JukeBox.fadeOutDuration != 0) songPlayer.getFadeOut().setType(FadeType.LINEAR);
-		songPlayer.setAutoDestroy(true);
+		songPlayer.setAutoDestroy(true); // Ensures player stops and cleans up after one song
 		songPlayer.addPlayer(getPlayer());
-		songPlayer.setRepeatMode(RepeatMode.NO); // Admin play should not repeat
-		songPlayer.adminPlayed = true; // Directly set the field
+		songPlayer.setRepeatMode(RepeatMode.NO); // Single play, no repeat
+		songPlayer.adminPlayed = true;
+
+		// DO NOT set session flags for admin single play:
+		// this.currentSmartRandomSongList = new ArrayList<>(songsInDirectory);
+		// this.currentSmartRandomPlaylistName = directoryName;
+		// this.isSmartRandomSessionActive = true;
+		// this.currentUserWantsRepeatAllForSmartRandom = false;
+
 		songPlayer.setPlaying(true);
 
 		if (JukeBox.getInstance().stopVanillaMusic != null) JukeBox.getInstance().stopVanillaMusic.accept(p);
-		JukeBox.sendMessage(getPlayer(), Lang.ADMIN_PLAYING_SONG_FROM
-				.replace("{SONG}", JukeBox.getSongName(selectedSong))
-				.replace("{PLAYLIST}", directoryName));
+
+		Player playerForLog = getPlayer();
+		if (playerForLog != null && firstSong != null) {
+		    String songIdentifier = JukeBox.getInternal(firstSong);
+		    if (songIdentifier == null || songIdentifier.isEmpty()) songIdentifier = firstSong.getPath().getName();
+		    JukeBox.getInstance().getLogger().info("RandomPlay: Admin playing " + songIdentifier + " for " + playerForLog.getName() + " (Smart Random Single from playlist " + directoryName + ")");
+		}
+
+		String adminMessageFormat = Lang.ADMIN_PLAYING_SONG_FROM;
+		if (adminMessageFormat != null) {
+		    JukeBox.sendMessage(getPlayer(), adminMessageFormat.replace("{PLAYLIST}", directoryName));
+		} else {
+		    JukeBox.getInstance().getLogger().warning("Lang.ADMIN_PLAYING_SONG_FROM is null. Cannot send message to player.");
+		}
 
 		if (linked != null) linked.playingStarted();
 		return true;
+	}
+
+	private void playNextSmartRandomSong(Song songToPlay, boolean isAdminPlayed) {
+		Playlist nextPlaylist = new Playlist(songToPlay);
+		// this.listening should still be Playlists.PLAYLIST from the initial call
+
+		// Important: a new SongPlayer instance is created.
+		// The old one is expected to have been (or about to be) destroyed due to autoDestroy=true.
+		CustomSongPlayer nextSongPlayer = new CustomSongPlayer(nextPlaylist);
+		nextSongPlayer.setParticlesEnabled(particles);
+		nextSongPlayer.getFadeIn().setFadeDuration(JukeBox.fadeInDuration);
+		if (JukeBox.fadeInDuration != 0) nextSongPlayer.getFadeIn().setType(FadeType.LINEAR);
+		nextSongPlayer.getFadeOut().setFadeDuration(JukeBox.fadeOutDuration);
+		if (JukeBox.fadeOutDuration != 0) nextSongPlayer.getFadeOut().setType(FadeType.LINEAR);
+		nextSongPlayer.setAutoDestroy(true);
+		Player currentPlayer = getPlayer();
+		if (currentPlayer != null) {
+			nextSongPlayer.addPlayer(currentPlayer);
+		} else {
+			JukeBox.getInstance().getLogger().warning("Player " + getID() + " was null when trying to play next smart random song. Aborting next song.");
+			// If player is null, we can't play. Session should naturally end or be cleaned up.
+			clearSmartRandomSessionFlags();
+			return;
+		}
+		nextSongPlayer.setRepeatMode(RepeatMode.NO); // Each song in smart random is a new event, no individual repeat.
+		nextSongPlayer.adminPlayed = isAdminPlayed; // Carry over admin status if applicable
+		
+		this.songPlayer = nextSongPlayer; // Update the main songPlayer reference
+		this.songPlayer.setPlaying(true);
+
+		if (JukeBox.getInstance().stopVanillaMusic != null && currentPlayer != null) JukeBox.getInstance().stopVanillaMusic.accept(currentPlayer);
+
+		Player playerForLog = getPlayer();
+		if (playerForLog != null) {
+			String songIdentifier = JukeBox.getInternal(songToPlay);
+			if (songIdentifier == null || songIdentifier.isEmpty()) songIdentifier = songToPlay.getPath().getName();
+			JukeBox.getInstance().getLogger().info("RandomPlay: Playing " + (isAdminPlayed ? "(admin) " : "") + "next (smart random) " + songIdentifier + " for " + playerForLog.getName() + " from playlist " + this.currentSmartRandomPlaylistName);
+		}
+		// No player message for subsequent songs in smart random by default, only for the first one.
+		// Or if admin played, the initial admin message was sent.
+
+		if (linked != null) linked.playingStarted(); // Update GUI if linked
+	}
+
+	private void clearSmartRandomSessionFlags() {
+		this.isSmartRandomSessionActive = false;
+		this.currentSmartRandomSongList = null;
+		this.currentSmartRandomPlaylistName = null;
+		this.currentUserWantsRepeatAllForSmartRandom = false;
+		// JukeBox.getInstance().getLogger().info("[DEBUG] Smart random session flags cleared for player " + getID());
 	}
 
 }

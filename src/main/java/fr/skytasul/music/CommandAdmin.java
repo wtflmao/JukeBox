@@ -129,28 +129,39 @@ public class CommandAdmin implements CommandExecutor{
 							continue; // 多目标时忽略无效目标，继续处理其他目标
 						}
 						
-						targetPdata.playDirectoryPlaylist(songsInPlaylist, playlistName);
-						if (targetPdata.songPlayer != null) {
-							targetPdata.songPlayer.adminPlayed = true;
+						boolean played = targetPdata.playRandomSongFromDirectoryForAdmin(songsInPlaylist, playlistName);
+						
+						if (played) {
 							successCount++;
 							
-							// 只有一个目标时发送详细反馈
 							if (targetPlayers.size() == 1 && JukeBox.adminCommandFeedback) {
-								sender.sendMessage(Lang.CLI_PLAY_RANDOM_SUCCESS.replace("{PLAYLIST}", playlistName).replace("{PLAYER}", targetPlayer.getName()));
+								sender.sendMessage(Lang.ADMIN_SUCCESS_PLAY_RANDOM
+									.replace("{PLAYLIST}", playlistName)
+									.replace("{PLAYER}", targetPlayer.getName()));
 								
 								Song firstSong = targetPdata.songPlayer.getSong();
 								if (firstSong != null) {
 									int subId = songsInPlaylist.indexOf(firstSong) + 1;
-									sender.sendMessage(Lang.CLI_RANDOM_STARTED_WITH.replace("{SUB_ID}", String.valueOf(subId)).replace("{SONG}", JukeBox.getInternal(firstSong)).replace("{PLAYER}", targetPlayer.getName()));
+									String songNameForAdmin = JukeBox.getInternal(firstSong);
+									if (songNameForAdmin == null || songNameForAdmin.isEmpty()) songNameForAdmin = firstSong.getPath().getName();
+									sender.sendMessage(Lang.CLI_RANDOM_STARTED_WITH
+											.replace("{SUB_ID}", String.valueOf(subId))
+											.replace("{SONG}", songNameForAdmin)
+											.replace("{PLAYER}", targetPlayer.getName()));
 								}
 							}
+						} else if (targetPlayers.size() == 1 && JukeBox.adminCommandFeedback) {
+							sender.sendMessage(Lang.ADMIN_FAILED_TO_PLAY_RANDOM
+								.replace("{PLAYLIST}", playlistName)
+								.replace("{PLAYER}", targetPlayer.getName()));
 						}
 					}
 					
-					// 多个目标时发送汇总反馈
 					if (targetPlayers.size() > 1 && JukeBox.adminCommandFeedback) {
-						sender.sendMessage(Lang.CLI_PLAY_RANDOM_MULTIPLE_SUCCESS.replace("{PLAYLIST}", playlistName).replace("{COUNT}", String.valueOf(successCount)));
-				}
+						sender.sendMessage(Lang.CLI_PLAY_RANDOM_MULTIPLE_SUCCESS
+							.replace("{PLAYLIST}", playlistName)
+							.replace("{COUNT}", String.valueOf(successCount)));
+					}
 				} else {
 					// 播放指定歌曲
 					try {

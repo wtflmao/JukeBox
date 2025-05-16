@@ -133,14 +133,22 @@ public class Lang{
 	}
 	
 	public static void loadFromConfig(File file, YamlConfiguration cfg) {
+		JukeBox.getInstance().getLogger().info("[Lang Debug] Attempting to load translations from file: " + file.getAbsolutePath() + ", cfg name: " + cfg.getName());
 		List<String> inexistant = new ArrayList<>();
 		for (String key : cfg.getValues(false).keySet()){
 			try {
 				String str = cfg.getString(key);
+				if (key.equals("NOW_PLAYING_SONG_FROM")) {
+				    JukeBox.getInstance().getLogger().info("[Lang Debug] Key 'NOW_PLAYING_SONG_FROM': value from cfg = '" + str + "'");
+				}
 				str = ChatColor.translateAlternateColorCodes('&', str);
 				if (JukeBox.version >= 16) str = translateHexColorCodes("(&|§)#", "", str);
 				try {
-					Lang.class.getDeclaredField(key).set(key, str);
+					Field field = Lang.class.getDeclaredField(key);
+					field.set(null, str);
+					if (key.equals("NOW_PLAYING_SONG_FROM")) {
+					    JukeBox.getInstance().getLogger().info("[Lang Debug] Key 'NOW_PLAYING_SONG_FROM': value after set in Lang class = '" + field.get(null) + "'");
+					}
 				}catch (NoSuchFieldException ex) {
 					inexistant.add(key);
 				}

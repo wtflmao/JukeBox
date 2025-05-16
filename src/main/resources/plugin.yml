@@ -74,3 +74,15 @@ permissions:
   music.admin.resetallplaylists:
     description: Allows admins to reset all online players' playlists to the server default.
     default: op
+  music.command.admin.resetplaylist:
+    description: Allows admin to reset any player's playlist to default or clear it.
+    default: op
+  music.command.admin.resetallplaylists:
+    description: Allows admin to reset all online players' playlists to default.
+    default: op
+  music.command.bossbar:
+    description: Allows player to toggle the song progress BossBar.
+    default: true
+  music.radio.receive:
+    description: Allows player to listen to the radio.
+    default: true

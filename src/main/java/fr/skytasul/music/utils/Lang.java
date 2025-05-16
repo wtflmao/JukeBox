@@ -92,7 +92,7 @@ public class Lang{
 	// Added keys for GUI revamp and CLI changes (edit3)
 	public static String GUI_BACK_BUTTON = "§cBack";
 	public static String GUI_PLAYLIST_ITEM_NAME = "§b[{ID}] {NAME}";
-	public static String GUI_PLAYLIST_ITEM_LORE_ACTION = "§eLeft-click to view songs"; // Replaces old PLAYLIST_ITEM_LORE_ACTION
+	public static String GUI_PLAYLIST_ITEM_LORE_ACTION = "§eLeft-click to view songs";
 	public static String GUI_SONG_ITEM_NAME = "§e[{SUB_ID}] {NAME}";
 	public static String CLI_PLAY_USAGE = "§cUsage: /amusic play <player> <list_id> [song_id|random]";
 	public static String CLI_PLAY_INVALID_LIST_ID = "§cInvalid List ID: {ID}. Must be between 1 and {MAX}";
@@ -124,6 +124,16 @@ public class Lang{
 	public static String ADMIN_FAILED_TO_PLAY_RANDOM;
 	public static String ADMIN_SUCCESS_PLAY_RANDOM;
 
+	// Added: BossBar related messages
+	public static String BOSSBAR_TITLE = "Play Progress";
+	public static String BOSSBAR_ENABLED = "&aBossBar enabled.";
+	public static String BOSSBAR_DISABLED = "&cBossBar disabled.";
+	public static String BOSSBAR_USAGE = "&cUsage: /music bar <on|off>";
+
+	// GUI Strings (cleaned up duplicates)
+	public static String GUI_NAME = "JukeBox";
+	public static String GUI_PLAYER_MUSIC_OFF = "&cYour music is OFF";
+
 	public static void saveFile(YamlConfiguration cfg, File file) throws ReflectiveOperationException, IOException {
 		for (Field f : Lang.class.getDeclaredFields()){
 			if (f.getType() != String.class) continue;
@@ -133,13 +143,13 @@ public class Lang{
 	}
 	
 	public static void loadFromConfig(File file, YamlConfiguration cfg) {
-		JukeBox.getInstance().getLogger().info("[Lang Debug] Attempting to load translations from file: " + file.getAbsolutePath() + ", cfg name: " + cfg.getName());
+		//JukeBox.getInstance().getLogger().info("[Lang Debug] Attempting to load translations from file: " + file.getAbsolutePath() + ", cfg name: " + cfg.getName());
 		List<String> inexistant = new ArrayList<>();
 		for (String key : cfg.getValues(false).keySet()){
 			try {
 				String str = cfg.getString(key);
 				if (key.equals("NOW_PLAYING_SONG_FROM")) {
-				    JukeBox.getInstance().getLogger().info("[Lang Debug] Key 'NOW_PLAYING_SONG_FROM': value from cfg = '" + str + "'");
+				    //JukeBox.getInstance().getLogger().info("[Lang Debug] Key 'NOW_PLAYING_SONG_FROM': value from cfg = '" + str + "'");
 				}
 				str = ChatColor.translateAlternateColorCodes('&', str);
 				if (JukeBox.version >= 16) str = translateHexColorCodes("(&|§)#", "", str);
@@ -147,7 +157,7 @@ public class Lang{
 					Field field = Lang.class.getDeclaredField(key);
 					field.set(null, str);
 					if (key.equals("NOW_PLAYING_SONG_FROM")) {
-					    JukeBox.getInstance().getLogger().info("[Lang Debug] Key 'NOW_PLAYING_SONG_FROM': value after set in Lang class = '" + field.get(null) + "'");
+					    //JukeBox.getInstance().getLogger().info("[Lang Debug] Key 'NOW_PLAYING_SONG_FROM': value after set in Lang class = '" + field.get(null) + "'");
 					}
 				}catch (NoSuchFieldException ex) {
 					inexistant.add(key);

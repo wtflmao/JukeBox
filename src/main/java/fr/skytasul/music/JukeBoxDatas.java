@@ -35,7 +35,9 @@ public class JukeBoxDatas {
 	public JukeBoxDatas(List<Map<?, ?>> mapList, Map<String, Song> tmpSongs) {
 		for (Map<?, ?> m : mapList) {
 			PlayerData pdata = PlayerData.deserialize((Map<String, Object>) m, tmpSongs);
-			players.put(pdata.getID(), pdata);
+			if (pdata != null) {
+				players.put(pdata.getID(), pdata);
+			}
 		}
 	}
 	

@@ -96,6 +96,10 @@ TOGGLE_MULTIPLE_SUCCESS: '§a已为 §e{COUNT}§a/§e{TOTAL}§a 名玩家切换�
 NO_SONG_AVAILABLE_IN_PLAYLIST: '§c无法从歌单 {PLAYLIST} 中播放歌曲：考虑到最近播放记录后，没有可用的歌曲。'
 NOW_PLAYING_SONG_FROM: '§6正在播放：来自歌单 §e{PLAYLIST} §6的 §e{SONG}§6。'
 ADMIN_PLAYING_SONG_FROM: '§b管理员为你开启了歌单 §e{PLAYLIST} §b的随机播放。'
-ADMIN_FAILED_TO_PLAY_RANDOM: '§c无法为玩家 {PLAYER} 随机播放歌单 {PLAYLIST} 中的歌曲：没有可用的歌曲或歌单为空。'
-ADMIN_SUCCESS_PLAY_RANDOM: '§a成功为玩家 {PLAYER} 开始播放歌单 {PLAYLIST} 中的随机歌曲。'
+ADMIN_FAILED_TO_PLAY_RANDOM: "&c为 {PLAYER} 从播放列表 {PLAYLIST} 启动随机播放失败（没有可用歌曲或播放列表无效）。"
+ADMIN_SUCCESS_PLAY_RANDOM: "&a已为 {PLAYER} 从播放列表 {PLAYLIST} 启动随机播放。第一首歌曲：{SONG}"
+BOSSBAR_TITLE: "播放进度"
+BOSSBAR_ENABLED: "&a播放进度条已开启。"
+BOSSBAR_DISABLED: "&c播放进度条已关闭。"
+BOSSBAR_USAGE: "&c用法: /music bar <on|off>"
 # Translated by hhzm

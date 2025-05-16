@@ -32,8 +32,26 @@ public class CommandMusic implements CommandExecutor{
 			if (!p.hasPermission("music.command.resetplaylist")) {
 				JukeBox.sendMessage(p, Lang.NOPERM);
 				return true;
-		}
+			}
 			resetPlaylist(p, pdata);
+		} else if (args.length > 0 && args[0].equalsIgnoreCase("bar")) {
+			if (!p.hasPermission("music.command.bossbar")) {
+				JukeBox.sendMessage(p, Lang.NOPERM);
+				return true;
+			}
+			if (args.length == 2) {
+				if (args[1].equalsIgnoreCase("on")) {
+					pdata.setBossbarEnabled(true);
+					JukeBox.sendMessage(p, Lang.BOSSBAR_ENABLED);
+				} else if (args[1].equalsIgnoreCase("off")) {
+					pdata.setBossbarEnabled(false);
+					JukeBox.sendMessage(p, Lang.BOSSBAR_DISABLED);
+				} else {
+					JukeBox.sendMessage(p, Lang.BOSSBAR_USAGE);
+				}
+			} else {
+				JukeBox.sendMessage(p, Lang.BOSSBAR_USAGE);
+			}
 		} else {
 			open(p, pdata);
 		}

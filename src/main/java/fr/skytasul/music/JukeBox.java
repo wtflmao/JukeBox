@@ -165,7 +165,27 @@ public class JukeBox extends JavaPlugin implements Listener{
 		async = config.getBoolean("asyncLoading");
 		autoJoin = config.getBoolean("forceJoinMusic");
 		songOnJoinName = autoJoin ? config.getString("songOnJoin") : null;
-		defaultPlayer = PlayerData.deserialize(config.getConfigurationSection("defaultPlayerOptions").getValues(false), null);
+
+		ConfigurationSection defaultOptionsCfg = config.getConfigurationSection("defaultPlayerOptions");
+		if (defaultOptionsCfg != null) {
+		    defaultPlayer = new PlayerData(null); // Pass null for ID as it's a template
+		    defaultPlayer.setJoinMusic(defaultOptionsCfg.getBoolean("join", false));
+		    defaultPlayer.setShuffle(defaultOptionsCfg.getBoolean("shuffle", false));
+		    defaultPlayer.setVolume(defaultOptionsCfg.getInt("volume", 100));
+		    defaultPlayer.setParticles(defaultOptionsCfg.getBoolean("particles", true));
+		    defaultPlayer.setRepeat(defaultOptionsCfg.getBoolean("repeat", false));
+		    defaultPlayer.setBossbarEnabled(defaultOptionsCfg.getBoolean("bossbarEnabled", true));
+		} else {
+		    getLogger().warning("defaultPlayerOptions section is missing in config.yml! Using hardcoded defaults for template.");
+		    defaultPlayer = new PlayerData(null); // Fallback to hardcoded defaults
+		    defaultPlayer.setJoinMusic(false);
+		    defaultPlayer.setShuffle(false);
+		    defaultPlayer.setVolume(100);
+		    defaultPlayer.setParticles(true);
+		    defaultPlayer.setRepeat(false);
+		    defaultPlayer.setBossbarEnabled(true);
+		}
+
 		particles = config.getBoolean("noteParticles") && version >= 9;
 		actionBar = config.getBoolean("actionBar") && version >= 9;
 		radioEnabled = config.getBoolean("radio");

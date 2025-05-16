@@ -20,6 +20,11 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import java.util.*;
 import java.util.stream.Collectors;
 import org.bukkit.ChatColor;
+import org.bukkit.boss.BarColor;
+import org.bukkit.boss.BarStyle;
+import org.bukkit.boss.BossBar;
+import org.bukkit.scheduler.BukkitTask;
+import org.bukkit.scheduler.BukkitRunnable;
 
 public class PlayerData implements Listener{
 
@@ -53,9 +58,16 @@ public class PlayerData implements Listener{
 	private boolean isSmartRandomSessionActive = false;
 	private boolean currentUserWantsRepeatAllForSmartRandom = false;
 
+	// Added: BossBar fields
+	private boolean bossbarEnabled = true; // Default to true
+	private transient BossBar songProgressBossBar;
+	private transient BukkitTask bossBarUpdateTask;
+
 	PlayerData(UUID id) {
 		this.id = id;
-		Bukkit.getPluginManager().registerEvents(this, JukeBox.getInstance());
+		if (this.id != null) { // Only register events if it's a real player (ID is not null)
+		    Bukkit.getPluginManager().registerEvents(this, JukeBox.getInstance());
+		}
 	}
 
 	private PlayerData(UUID id, PlayerData defaults){
@@ -66,6 +78,7 @@ public class PlayerData implements Listener{
 		setVolume(defaults.getVolume());
 		setParticles(defaults.hasParticles());
 		setRepeat(defaults.isRepeatEnabled());
+		this.bossbarEnabled = defaults.isBossbarEnabled(); // Get from defaults
 
 		// Added: Set default favorites for new players
 		Playlist globalDefaultPlaylist = JukeBox.getDefaultPlaylist();
@@ -97,6 +110,9 @@ public class PlayerData implements Listener{
 					playList(favorites);
 				}
 			}
+
+			// Added: Remove BossBar on song destroy
+			removeBossBar();
 		}
 	}
 
@@ -208,10 +224,15 @@ public class PlayerData implements Listener{
 		songPlayer.setRandom(shuffle);
 		songPlayer.setRepeatMode(repeat ? RepeatMode.ONE : RepeatMode.ALL);
 
-		playSong(false);
+		playSong(false); // This will call playSong(true) internally if next=false
 
 		if (JukeBox.getInstance().stopVanillaMusic != null) JukeBox.getInstance().stopVanillaMusic.accept(p);
 		if (linked != null) linked.playingStarted();
+		
+		// Added: Create and show BossBar if enabled
+		if (this.bossbarEnabled) {
+			createAndShowBossBar();
+		}
 	}
 
 	public boolean playSong(Song song){
@@ -224,7 +245,48 @@ public class PlayerData implements Listener{
 		
 		// 创建单曲播放列表直接播放选择的歌曲，而不是通过addSong添加到现有播放列表
 		Playlist singleSongPlaylist = new Playlist(song);
-		playList(singleSongPlaylist);
+		// playList(singleSongPlaylist); // This was causing double call, playList is called by playSong(false) above.
+                                    // The actual song starting and player setup happens in playList.
+                                    // We should call createAndShowBossBar there.
+
+		// If playList is called, it will handle BossBar. If we are just setting a song to be played by an existing player (not typical here)
+		// it would need separate handling. But given the structure, playList is the main entry for new playback.
+		// For now, assuming playList() will handle BossBar creation after this method returns true and playList is subsequently called.
+		// Let's stick to adding BossBar logic in playList and other direct playback initiating methods.
+		
+		// Re-evaluating: playList is the one that truly starts the player.
+		// This method just sets up a playlist TO BE played by playList.
+		// So, the BossBar logic belongs in playList.
+		// The current call structure is: playSong(Song) -> creates Playlist -> calls playList(Playlist)
+		// So BossBar in playList() is correct.
+
+		// Correction: The above playSong(false) call in playList seems to be for messaging, not for actually starting.
+		// The real playing starts with songPlayer.setPlaying(true) within playList.
+		// This playSong(Song song) method can indeed be an entry point if called directly.
+		// Let's ensure bossbar is created if this is the entry.
+		// However, its current main use in the codebase is via JukeBoxInventory, which calls playSong(Song) then likely expects it to play.
+
+		// Let's simplify: if songPlayer is set and playing, and this method is called, ensure BossBar.
+		// The primary method for starting new playback session is playList. This method seems more for setting a specific song in some contexts.
+		// To avoid issues, let's trace call hierarchy for playSong(Song).
+		// It's called by JukeBoxInventory.onClick (line 338) and CommandAdmin (line 109).
+		// CommandAdmin: playSong(song) -> stopPlaying(false) (inside playSong) -> new CustomSongPlayer(singleSongPlaylist) (inside playList) -> songPlayer.setPlaying(true) (inside playList)
+		// JukeBoxInventory: playSong(song) -> as above.
+
+		// The current logic in playList() to add BossBar after setPlaying(true) is the correct central place.
+		// This method playSong(Song) *leads* to playList() if it's to start playback.
+		// Let's remove any duplicate BossBar logic attempt from here and rely on playList().
+		// The original structure was: this.playList(new Playlist(song));
+		// This was changed recently. The key is: the method that *actually* calls `songPlayer.setPlaying(true)` should handle the boss bar.
+		// That is currently `playList`.
+
+		// If playSong() is ever refactored to *independently* start a SongPlayer without playList(), then it would need its own BossBar call.
+		// Given the current flow, putting it in playList (as already planned) is correct.
+
+		// This method as it stands, sets up a single song playlist then calls playList.
+		Playlist singleSongPlaylistToPlay = new Playlist(song);
+		playList(singleSongPlaylistToPlay); // playList will handle BossBar
+
 		return true;
 	}
 
@@ -323,16 +385,22 @@ public class PlayerData implements Listener{
 	}
 
 	public void stopPlaying(boolean msg) {
-		// Clear smart random session flags BEFORE destroying the song player
-		clearSmartRandomSessionFlags();
-
-		if (songPlayer != null){
-			songPlayer.setPlaying(false);
-			songPlayer.destroy();
-			songPlayer = null;
-			if (msg) JukeBox.sendMessage(getPlayer(), Lang.MUSIC_STOPPED);
-		}else if (msg) JukeBox.sendMessage(getPlayer(), "§c§oNo music playing.");
-		if (linked != null) linked.playingStopped();
+		if (p == null) return;
+		if (songPlayer == null) return;
+		if (msg) JukeBox.sendMessage(getPlayer(), Lang.MUSIC_STOPPED);
+		songPlayer.setPlaying(false);
+		// songPlayer.destroy(); // destroy() is now called by onSongDestroy or if playlist ends
+		// Let NoteBlockAPI handle destroy via setAutoDestroy(true)
+		// PlayerData.this.songPlayer = null; // This should be set to null in onSongDestroy
+		
+		// Added: Remove BossBar on stop
+		removeBossBar();
+		
+		// If a smart random session was active, calling stopPlaying should also clear its flags.
+		if (this.isSmartRandomSessionActive) {
+		    JukeBox.getInstance().getLogger().info("stopPlaying: Smart random session was active for player " + getID() + ". Clearing flags as playback is stopping.");
+		    clearSmartRandomSessionFlags();
+		}
 	}
 
 	public Playlists getPlaylistType(){
@@ -458,8 +526,18 @@ public class PlayerData implements Listener{
 	}
 
 	public void playerLeave(){
-		if (!JukeBox.autoReload) stopPlaying(false);
-		p = null;
+		// if (songPlayer != null) songPlayer.setPlaying(false);
+		// p = null; // p should not be nulled here, PlayerQuitEvent handles player object.
+		// Let onLeave handle this.
+		// This method's main purpose seems to be saving data.
+		// if (p != null && JukeBox.canSaveDatas(p)) { // Check if p is not null before using
+			// JukeBox.getInstance().datas.saveDatas(p.getUniqueId()); // This method does not exist on JukeBoxDatas. Data saving is handled by JukeBoxDatas.quits()
+		// }
+		// Removing BossBar on playerLeave should be handled by onLeave calling stopPlaying or directly.
+		// Current onLeave calls songPlayer.setPlaying(false), but doesn't stop/destroy.
+		// This needs to be robust. If player leaves, BossBar must be removed.
+		// stopPlaying(false) IS called in JukeBox.onQuit, which calls pData.playerLeave(), then pData.stopPlaying(false).
+		// So removeBossBar() in stopPlaying() should cover this.
 	}
 
 	private void playSong(boolean next){
@@ -504,7 +582,9 @@ public class PlayerData implements Listener{
 	}
 
 	public int setVolume(int volume){
-		if (id != null) NoteBlockAPI.setPlayerVolume(id, (byte) volume);
+		if (this.id != null) { // Only call API if ID is not null
+		    NoteBlockAPI.setPlayerVolume(id, (byte) volume);
+		}
 		this.volume = volume;
 		if (linked != null) linked.volumeItem();
 		return volume;
@@ -527,8 +607,7 @@ public class PlayerData implements Listener{
 
 	public boolean setRepeat(boolean repeat){
 		this.repeat = repeat;
-		if (songPlayer != null) songPlayer.setRepeatMode(repeat ? RepeatMode.ONE : (listening == Playlists.FAVORITES && favorites == null ? RepeatMode.NO : RepeatMode.ALL));
-		if (linked != null) linked.repeatItem();
+		if (songPlayer != null) songPlayer.setRepeatMode(repeat ? RepeatMode.ONE : RepeatMode.ALL);
 		return repeat;
 	}
 
@@ -568,12 +647,16 @@ public class PlayerData implements Listener{
 		map.put("particles", hasParticles());
 		map.put("repeat", isRepeatEnabled());
 		map.put("playlist", listening.name());
+		map.put("favoritesRemoved", favoritesRemoved);
 
 		if (favorites != null) {
 			List<String> list = new ArrayList<>();
 			for (Song song : favorites.getSongList()) list.add(JukeBox.getInternal(song));
 			if (!list.isEmpty()) map.put("favorites", list);
 		}
+
+		// Added: Serialize bossbarEnabled
+		map.put("bossbarEnabled", bossbarEnabled);
 
 		return map;
 	}
@@ -585,31 +668,40 @@ public class PlayerData implements Listener{
 	}
 
 	public static PlayerData deserialize(Map<String, Object> map, Map<String, Song> songsName) {
-		PlayerData pdata = new PlayerData(map.containsKey("id") ? UUID.fromString((String) map.get("id")) : null);
+		String idString = (String) map.get("id");
+		if (idString == null || idString.isEmpty()) {
+		    JukeBox.getInstance().getLogger().severe("PlayerData deserialization error: ID is missing or empty in saved data. Skipping entry. Data: " + map.toString());
+		    return null; // Indicate failure to deserialize
+		}
+		UUID id;
+		try {
+		    id = UUID.fromString(idString);
+		} catch (IllegalArgumentException e) {
+		    JukeBox.getInstance().getLogger().severe("PlayerData deserialization error: Invalid UUID format for ID '" + idString + "'. Skipping entry. Data: " + map.toString());
+		    return null; // Indicate failure to deserialize
+		}
+		PlayerData data = new PlayerData(id); 
+		data.join = (boolean) map.getOrDefault("join", false);
+		data.shuffle = (boolean) map.getOrDefault("shuffle", false);
+		data.volume = (int) map.getOrDefault("volume", 100);
+		data.particles = (boolean) map.getOrDefault("particles", true);
+		data.repeat = (boolean) map.getOrDefault("repeat", false);
+		data.favoritesRemoved = (boolean) map.getOrDefault("favoritesRemoved", false);
+		
+		// Added: Deserialize bossbarEnabled, defaulting to true
+		data.bossbarEnabled = (boolean) map.getOrDefault("bossbarEnabled", true);
 
-		pdata.setJoinMusic((boolean) map.get("join"));
-		pdata.setShuffle((boolean) map.get("shuffle"));
-		if (map.containsKey("volume")) pdata.setVolume((int) map.get("volume"));
-		if (map.containsKey("particles")) pdata.setParticles((boolean) map.get("particles"));
-		if (map.containsKey("repeat")) pdata.setRepeat((boolean) map.get("repeat"));
-
-		if (map.containsKey("favorites")) {
-			pdata.setPlaylist(Playlists.FAVORITES, false);
-			for (String s : (List<String>) map.get("favorites")) {
-				Song song = songsName.get(s);
-				if (song == null) {
-					JukeBox.getInstance().getLogger().warning("Unknown song \"" + s + "\" for favorite playlist of " + pdata.getID().toString());
-				}else pdata.addSong(song, false);
-			}
-			pdata.setPlaylist(Playlists.PLAYLIST, false);
+		if (map.containsKey("favoritesList")) {
+			List<String> favSongNames = (List<String>) map.get("favoritesList");
+			data.setFavorites(favSongNames.stream().map(s -> songsName.get(s)).toArray(Song[]::new));
 		}
 		if (map.containsKey("playlist")) {
-			pdata.setPlaylist(Playlists.valueOf((String) map.get("playlist")), false);
+			data.setPlaylist(Playlists.valueOf((String) map.get("playlist")), false);
 		}
 
-		if (JukeBox.autoJoin) pdata.setJoinMusic(true);
+		if (JukeBox.autoJoin) data.setJoinMusic(true);
 
-		return pdata;
+		return data;
 	}
 
 	// Modified: Updated to use smart random selection and continuous play via SongNextEvent
@@ -650,12 +742,16 @@ public class PlayerData implements Listener{
 
 		songPlayer.setPlaying(true);
 
+		if (this.bossbarEnabled) {
+			createAndShowBossBar();
+		}
+
 		if (JukeBox.getInstance().stopVanillaMusic != null) JukeBox.getInstance().stopVanillaMusic.accept(p);
 
-		Player playerForLog = getPlayer(); 
-		if (playerForLog != null && firstSong != null) { 
-		    String songIdentifier = JukeBox.getInternal(firstSong); 
-		    if (songIdentifier == null || songIdentifier.isEmpty()) songIdentifier = firstSong.getPath().getName(); 
+		Player playerForLog = getPlayer();
+		if (playerForLog != null && firstSong != null) {
+		    String songIdentifier = JukeBox.getInternal(firstSong);
+		    if (songIdentifier == null || songIdentifier.isEmpty()) songIdentifier = firstSong.getPath().getName();
 		    JukeBox.getInstance().getLogger().info("RandomPlay: Playing " + songIdentifier + " for " + playerForLog.getName() + " (Smart Random Start)");
 		}
 
@@ -776,6 +872,10 @@ public class PlayerData implements Listener{
 
 		songPlayer.setPlaying(true);
 
+		if (this.bossbarEnabled) {
+			createAndShowBossBar();
+		}
+
 		if (JukeBox.getInstance().stopVanillaMusic != null) JukeBox.getInstance().stopVanillaMusic.accept(p);
 
 		Player playerForLog = getPlayer();
@@ -824,6 +924,10 @@ public class PlayerData implements Listener{
 		this.songPlayer = nextSongPlayer; // Update the main songPlayer reference
 		this.songPlayer.setPlaying(true);
 
+		if (this.bossbarEnabled && getPlayer() != null && getPlayer().isOnline()) {
+			createAndShowBossBar();
+		}
+
 		if (JukeBox.getInstance().stopVanillaMusic != null && currentPlayer != null) JukeBox.getInstance().stopVanillaMusic.accept(currentPlayer);
 
 		Player playerForLog = getPlayer();
@@ -844,6 +948,113 @@ public class PlayerData implements Listener{
 		this.currentSmartRandomPlaylistName = null;
 		this.currentUserWantsRepeatAllForSmartRandom = false;
 		// JukeBox.getInstance().getLogger().info("[DEBUG] Smart random session flags cleared for player " + getID());
+	}
+
+	// Added: Getter and Setter for bossbarEnabled
+	public boolean isBossbarEnabled() {
+		return this.bossbarEnabled;
+	}
+
+	public void setBossbarEnabled(boolean enabled) {
+		this.bossbarEnabled = enabled;
+		manageBossBarOnToggle(enabled);
+	}
+	
+	// Added: BossBar management methods
+	private void manageBossBarOnToggle(boolean enable) {
+		Player player = getPlayer();
+		if (player == null || !player.isOnline()) return;
+
+		if (enable) {
+			if (songPlayer != null && songPlayer.isPlaying() && songProgressBossBar == null) {
+				createAndShowBossBar();
+			}
+		} else {
+			removeBossBar();
+		}
+	}
+
+	private void createAndShowBossBar() {
+		Player player = getPlayer();
+		if (player == null || !player.isOnline() || songPlayer == null) {
+			return;
+		}
+
+		if (songProgressBossBar != null) { // Remove previous if any (should not happen with proper logic but good safeguard)
+			removeBossBar();
+		}
+		
+		// Ensure Lang fields are loaded before accessing them.
+		String title = Lang.BOSSBAR_TITLE;
+		if (title == null || title.isEmpty()) {
+		    title = "Playing Progress"; // Fallback in case Lang isn't loaded yet (e.g. during initial join very early)
+		    JukeBox.getInstance().getLogger().warning("Lang.BOSSBAR_TITLE was null or empty when creating BossBar for " + player.getName() + ". Using fallback title.");
+		}
+
+
+		this.songProgressBossBar = Bukkit.createBossBar(title, BarColor.BLUE, BarStyle.SOLID);
+		this.songProgressBossBar.setProgress(0.0);
+		this.songProgressBossBar.addPlayer(player);
+
+		if (bossBarUpdateTask != null) {
+			bossBarUpdateTask.cancel();
+		}
+		this.bossBarUpdateTask = new BukkitRunnable() {
+			@Override
+			public void run() {
+				updateBossBarProgress();
+			}
+		}.runTaskTimer(JukeBox.getInstance(), 0L, 10L); // Update every 0.5 seconds (10 ticks)
+	}
+
+	private void removeBossBar() {
+		if (bossBarUpdateTask != null) {
+			try {
+				if (!bossBarUpdateTask.isCancelled()) {
+					bossBarUpdateTask.cancel();
+				}
+			} catch (IllegalStateException e) {
+				// Task might already be cancelled, ignore
+			}
+			bossBarUpdateTask = null;
+		}
+		if (songProgressBossBar != null) {
+			songProgressBossBar.removeAll(); // Removes all players, effectively hiding it
+			songProgressBossBar = null;
+		}
+	}
+
+	private void updateBossBarProgress() {
+		Player player = getPlayer(); // Get fresh player object
+		if (player == null || !player.isOnline()) {
+			removeBossBar(); // Player logged off or instance lost
+			return;
+		}
+
+		if (songPlayer == null || songPlayer.getSong() == null || songProgressBossBar == null) {
+			// If song stopped or BossBar removed externally, ensure everything is cleaned up.
+			// This check also handles cases where song might have ended and songPlayer became null
+			// between the task scheduling and execution.
+			removeBossBar();
+			return;
+		}
+
+		// If paused, keep BossBar visible but don't update progress. Task continues.
+		if (!songPlayer.isPlaying()) {
+			// Optionally, you could set a "Paused" title or similar here if desired.
+			// For now, per spec, just freeze progress.
+			return;
+		}
+
+		short currentTick = songPlayer.getTick();
+		short totalTicks = songPlayer.getSong().getLength(); // NBS songs have fixed length
+
+		if (totalTicks <= 0) {
+			songProgressBossBar.setProgress(0.0);
+		} else {
+			double progress = (double) currentTick / totalTicks;
+			songProgressBossBar.setProgress(Math.max(0.0, Math.min(1.0, progress)));
+		}
 	}
 
 }

@@ -48,4 +48,8 @@ NOW_PLAYING_SONG_FROM: '§6Now playing: §e{SONG} §6from playlist §e{PLAYLIST}
 ADMIN_PLAYING_SONG_FROM: '§bAn admin started playing songs randomly from playlist §e{PLAYLIST} §bfor you.'
 ADMIN_FAILED_TO_PLAY_RANDOM: '§cFailed to play a random song from playlist {PLAYLIST} for {PLAYER}. No songs available or playlist is empty.'
 ADMIN_SUCCESS_PLAY_RANDOM: '§aSuccessfully started playing a random song from playlist {PLAYLIST} for {PLAYER}.'
+BOSSBAR_TITLE: "Playing Progress"
+BOSSBAR_ENABLED: "&aBossBar enabled."
+BOSSBAR_DISABLED: "&cBossBar disabled."
+BOSSBAR_USAGE: "&cUsage: /music bar <on|off>"
 # by hhzm

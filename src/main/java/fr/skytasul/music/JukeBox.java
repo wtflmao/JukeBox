@@ -108,6 +108,8 @@ public class JukeBox extends JavaPlugin implements Listener{
 
 	@Override
 	public void onEnable(){
+		getLogger().info("Rewritten version maintained by hhzm (JK trigger)");
+		
 		instance = this;
 
 		if (getServer().getPluginManager().isPluginEnabled("PlaceholderAPI")) Placeholders.registerPlaceholders();
@@ -307,8 +309,8 @@ public class JukeBox extends JavaPlugin implements Listener{
 						String internalName = getInternal(song);
 						if (internalNames.containsKey(internalName)) {
 							getLogger().warning("Song internal name '" + internalName + "' from file " + songFile.getName() + " in directory " + playlistName + " is duplicated (already loaded from another file/directory). Skipping.");
-					continue;
-				}
+							continue;
+						}
 						songsInDir.add(song);
 						internalNames.put(internalName, song);
 						fileNames.put(songFile.getName(), song); // Keep file name mapping if needed
@@ -343,7 +345,7 @@ public class JukeBox extends JavaPlugin implements Listener{
 		for (String orderedPlaylistName : playlistOrder) { // Iterate in sorted order
 			if (directoryPlaylists.containsKey(orderedPlaylistName)) {
 				songs.addAll(directoryPlaylists.get(orderedPlaylistName));
-		}
+			}
 		}
 		// Collections.sort(songs, Comparator.comparing(JukeBox::getInternal, Collator.getInstance())); // Global sort might not be needed/desired anymore
 
@@ -628,11 +630,11 @@ public class JukeBox extends JavaPlugin implements Listener{
 
 	// Added Getters for new structures
 	public static Map<String, List<Song>> getDirectoryPlaylists() {
-		return Collections.unmodifiableMap(directoryPlaylists);
+		return directoryPlaylists;
 	}
 
 	public static List<String> getPlaylistOrder() {
-		return Collections.unmodifiableList(playlistOrder);
+		return playlistOrder;
 	}
 
 }

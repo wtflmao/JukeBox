@@ -60,7 +60,6 @@ public class JukeBoxInventory implements Listener{
 	private int songListPage = 0;
 
 	private static final Material PLAYLIST_ITEM_MATERIAL = Material.CHEST;
-	private static final Material SONG_ITEM_MATERIAL_DEFAULT = Material.MUSIC_DISC_CAT;
 	private static final ItemStack BACK_BUTTON_ITEM = item(Material.ARROW, Lang.GUI_BACK_BUTTON);
 	private static final ItemStack RANDOM_THIS_PLAYLIST_ITEM = item(Material.ENDER_EYE, Lang.GUI_RANDOM_THIS_PLAYLIST_BUTTON);
 
@@ -155,7 +154,7 @@ public class JukeBoxInventory implements Listener{
 		for (int i = 0; i < 45 && (startIndex + i) < totalSongs; i++) {
 			int currentSongIndex = startIndex + i;
 			Song song = songsInPlaylist.get(currentSongIndex);
-			ItemStack songItem = new ItemStack(SONG_ITEM_MATERIAL_DEFAULT);
+			ItemStack songItem = new ItemStack(getMusicDiscMaterial(song));
 			ItemMeta meta = songItem.getItemMeta();
 			String displayName = Lang.GUI_SONG_ITEM_NAME
 					.replace("{SUB_ID}", String.valueOf(currentSongIndex + 1))
@@ -360,7 +359,7 @@ public class JukeBoxInventory implements Listener{
 						}
 						p.closeInventory();
 					} else {
-						JukeBox.sendMessage(p, "§cPlaylist is empty or invalid.");
+						JukeBox.sendMessage(p, Lang.NO_SONG_AVAILABLE_IN_PLAYLIST.replace("{PLAYLIST}", viewingPlaylistName));
 					}
 				} else {
 					JukeBox.sendMessage(p, "§cError: No playlist selected.");
@@ -541,6 +540,27 @@ public class JukeBoxInventory implements Listener{
 
 	enum ItemsMenu{
 		PLAYLIST_LIST, SONG_LIST, OPTIONS, PLAYLIST;
+	}
+
+	private Material getMusicDiscMaterial(Song song) {
+		if (JukeBox.songItems == null || JukeBox.songItems.isEmpty()) {
+			// Fallback if songItems is not initialized or empty
+			// Attempt to use a version-appropriate default if JukeBox.songItems is not available
+			return Material.getMaterial(JukeBox.version > 12 ? "MUSIC_DISC_CAT" : "RECORD_4"); // CAT for 1.13+, RECORD_4 for older
+		}
+		String songName = JukeBox.getInternal(song);
+		if (songName == null || songName.isEmpty()) {
+			// Fallback for songs with no name (e.g., just path), use the first available disc
+			return JukeBox.songItems.get(0);
+		}
+		int nameLength = songName.length();
+		int discCount = JukeBox.songItems.size();
+		// Ensure discCount is not zero to prevent ArithmeticException
+		if (discCount == 0) {
+			return Material.getMaterial(JukeBox.version > 12 ? "MUSIC_DISC_CAT" : "RECORD_4");
+		}
+		int discIndex = nameLength % discCount;
+		return JukeBox.songItems.get(discIndex);
 	}
 
 }

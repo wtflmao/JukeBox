@@ -28,14 +28,14 @@ public class Lang{
 	public static String RANDOM_MUSIC = ChatColor.DARK_AQUA + "Random music";
 	public static String STOP = ChatColor.RED + "Stop the music";
 	public static String MUSIC_STOPPED = ChatColor.GREEN + "Music stopped.";
-	public static String ENABLE = "Enable";
-	public static String DISABLE = "Disable";
+	public static String ENABLE;
+	public static String DISABLE;
 	public static String ENABLED = "Enabled";
 	public static String DISABLED = "Disabled";
-	public static String TOGGLE_SHUFFLE_MODE = "{TOGGLE} the shuffle mode";
-	public static String TOGGLE_LOOP_MODE = "{TOGGLE} the loop mode";
-	public static String TOGGLE_CONNEXION_MUSIC = "{TOGGLE} music when connecting";
-	public static String TOGGLE_PARTICLES = "{TOGGLE} particles";
+	public static String TOGGLE_SHUFFLE_MODE;
+	public static String TOGGLE_LOOP_MODE;
+	public static String TOGGLE_CONNEXION_MUSIC;
+	public static String TOGGLE_PARTICLES;
 	public static String MUSIC_PLAYING = ChatColor.GREEN + "Music while playing:";
 	public static String INCORRECT_SYNTAX = ChatColor.RED + "Incorrect syntax.";
 	public static String RELOAD_LAUNCH = ChatColor.GREEN + "Trying to reload.";
@@ -104,8 +104,8 @@ public class Lang{
 	public static String CLI_PLAY_RANDOM_SUCCESS = "§aPlaying playlist '§e{PLAYLIST}§a' randomly for player '§e{PLAYER}§a'.";
 
 	// Added keys for random start feedback (edit 5)
-	public static String GUI_RANDOM_STARTED_WITH = "§aRandom play started. First song: §e[{SUB_ID}] {SONG}";
-	public static String CLI_RANDOM_STARTED_WITH = "§aStarted random play for player '{PLAYER}'. First song: §e[{SUB_ID}] {SONG}";
+	public static String GUI_RANDOM_STARTED_WITH;
+	public static String CLI_RANDOM_STARTED_WITH;
 	
 	// Added keys for selector support
 	public static String SELECTOR_S_NOT_PLAYER = "§cError: @s selector can only be used by a player.";
@@ -116,6 +116,13 @@ public class Lang{
 	public static String CLI_PLAY_MULTIPLE_SUCCESS = "§aPlaying song '§e{SONG}§a' for §e{COUNT}§a players.";
 	public static String CLI_PLAY_RANDOM_MULTIPLE_SUCCESS = "§aPlaying playlist '§e{PLAYLIST}§a' randomly for §e{COUNT}§a players.";
 	public static String TOGGLE_MULTIPLE_SUCCESS = "§aToggled playback for §e{COUNT}§a/§e{TOTAL}§a players.";
+
+	// Added: New language keys for smart random play feature
+	public static String NO_SONG_AVAILABLE_IN_PLAYLIST;
+	public static String NOW_PLAYING_SONG_FROM;
+	public static String ADMIN_PLAYING_SONG_FROM;
+	public static String ADMIN_FAILED_TO_PLAY_RANDOM;
+	public static String ADMIN_SUCCESS_PLAY_RANDOM;
 
 	public static void saveFile(YamlConfiguration cfg, File file) throws ReflectiveOperationException, IOException {
 		for (Field f : Lang.class.getDeclaredFields()){

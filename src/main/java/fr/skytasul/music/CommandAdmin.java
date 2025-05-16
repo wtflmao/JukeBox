@@ -112,7 +112,7 @@ public class CommandAdmin implements CommandExecutor{
 				if (songsInPlaylist == null || songsInPlaylist.isEmpty()) {
 					sender.sendMessage("§cPlaylist '" + playlistName + "' (ID: " + listId + ") is empty or invalid.");
 					return true;
-				}
+			}
 
 				// 处理多个目标玩家
 				int successCount = 0;
@@ -150,7 +150,7 @@ public class CommandAdmin implements CommandExecutor{
 					// 多个目标时发送汇总反馈
 					if (targetPlayers.size() > 1 && JukeBox.adminCommandFeedback) {
 						sender.sendMessage(Lang.CLI_PLAY_RANDOM_MULTIPLE_SUCCESS.replace("{PLAYLIST}", playlistName).replace("{COUNT}", String.valueOf(successCount)));
-					}
+				}
 				} else {
 					// 播放指定歌曲
 					try {
@@ -215,14 +215,14 @@ public class CommandAdmin implements CommandExecutor{
 			
 			for (Player p : playlistTargets) {
 				// 临时替换参数中的玩家名称
-				args[1] = p.getName();
-				String msg = playlist(args);
+					args[1] = p.getName();
+					String msg = playlist(args);
 				if (!msg.isEmpty()) {
 					if (playlistTargets.size() > 1) {
 						sender.sendMessage(p.getName() + " : " + msg);
 					} else {
 						sender.sendMessage(msg);
-					}
+			}
 				}
 			}
 			
@@ -239,8 +239,8 @@ public class CommandAdmin implements CommandExecutor{
 			List<Player> stopTargets = getTargetPlayers(sender, args[1]);
 			if (stopTargets.isEmpty()) {
 				sender.sendMessage(Lang.UNKNOWN_PLAYER_SELECTOR.replace("{SELECTOR}", args[1]));
-				return false;
-			}
+					return false;
+				}
 			
 			for (Player p : stopTargets) {
 				sender.sendMessage(stop(p));
@@ -260,8 +260,8 @@ public class CommandAdmin implements CommandExecutor{
 			}
 			
 			for (Player p : toggleTargets) {
-				toggle(p);
-			}
+					toggle(p);
+				}
 			
 			if (toggleTargets.size() > 1) {
 				sender.sendMessage(Lang.TOGGLE_MULTIPLE_SUCCESS.replace("{COUNT}", String.valueOf(toggleTargets.size())).replace("{TOTAL}", String.valueOf(toggleTargets.size())));
@@ -496,8 +496,8 @@ public class CommandAdmin implements CommandExecutor{
 			List<Player> nextTargets = getTargetPlayers(sender, args[1]);
 			if (nextTargets.isEmpty()) {
 				sender.sendMessage(Lang.UNKNOWN_PLAYER_SELECTOR.replace("{SELECTOR}", args[1]));
-				return false;
-			}
+					return false;
+				}
 			
 			int count = 0;
 			for (Player p : nextTargets) {
@@ -552,6 +552,40 @@ public class CommandAdmin implements CommandExecutor{
 		Player cp = Bukkit.getPlayer(args[1]);
 		if (cp == null) return "§cUnknown player.";
 		if (JukeBox.worlds && !JukeBox.worldsEnabled.contains(cp.getWorld().getName())) return "§cMusic isn't enabled in the world the player is into.";
+
+		// Handle directory random play
+		if (args[2].equalsIgnoreCase("random")) {
+			try {
+				int directoryId = Integer.parseInt(args[3]) - 1; // Convert to 0-based index
+				List<String> orderedPlaylists = JukeBox.getPlaylistOrder();
+				if (directoryId < 0 || directoryId >= orderedPlaylists.size()) {
+					return "§cInvalid directory ID: " + (directoryId + 1);
+				}
+				String directoryName = orderedPlaylists.get(directoryId);
+				List<Song> songsInDirectory = JukeBox.getDirectoryPlaylists().get(directoryName);
+				if (songsInDirectory == null || songsInDirectory.isEmpty()) {
+					return Lang.ADMIN_FAILED_TO_PLAY_RANDOM
+							.replace("{PLAYLIST}", directoryName)
+							.replace("{PLAYER}", cp.getName());
+				}
+				PlayerData pdata = JukeBox.getInstance().datas.getDatas(cp);
+				if (pdata.playRandomSongFromDirectoryForAdmin(songsInDirectory, directoryName)) {
+					return Lang.ADMIN_SUCCESS_PLAY_RANDOM
+							.replace("{PLAYLIST}", directoryName)
+							.replace("{PLAYER}", cp.getName());
+				} else {
+					return Lang.ADMIN_FAILED_TO_PLAY_RANDOM
+							.replace("{PLAYLIST}", directoryName)
+							.replace("{PLAYER}", cp.getName());
+				}
+			} catch (NumberFormatException ex) {
+				return "§cInvalid directory ID format. Usage: /adminmusic <player> random <directoryID>";
+			} catch (IndexOutOfBoundsException ex) {
+				return "§cMissing directory ID. Usage: /adminmusic <player> random <directoryID>";
+			}
+		}
+
+		// Original single song play logic
 		Song song;
 		try{
 			int id = Integer.parseInt(args[2]);

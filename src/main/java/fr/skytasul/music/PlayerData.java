@@ -40,6 +40,11 @@ public class PlayerData implements Listener{
 	private List<Integer> randomPlaylist = new ArrayList<>();
 	JukeBoxInventory linked = null;
 
+	// Added: Fields and constants for smart random play feature
+	private static final long RECENTLY_PLAYED_EXPIRY_MS = 30 * 60 * 1000; // 30 minutes
+	private static final double RECENTLY_PLAYED_FULL_THRESHOLD = 0.85; // 85%
+	private Map<String, Map<Song, Long>> recentlyPlayedTracker = new HashMap<>();
+
 	PlayerData(UUID id) {
 		this.id = id;
 		Bukkit.getPluginManager().registerEvents(this, JukeBox.getInstance());
@@ -524,21 +529,23 @@ public class PlayerData implements Listener{
 		return pdata;
 	}
 
-	// Added method to play a directory playlist randomly
-	// Modified signature to accept List<Song> for pre-shuffling
+	// Modified: Updated to use smart random selection
 	public void playDirectoryPlaylist(List<Song> songsToPlay, String directoryName) {
 		stopPlaying(false); // Stop any current music
 		if (songsToPlay == null || songsToPlay.isEmpty()) {
-			JukeBox.sendMessage(getPlayer(), "§cCannot play '§e" + directoryName + "§c': Playlist is empty or invalid.");
+			JukeBox.sendMessage(getPlayer(), Lang.NO_SONG_AVAILABLE_IN_PLAYLIST.replace("{PLAYLIST}", directoryName));
 			return;
 		}
-		// --- Key Change: Shuffle the list before creating the Playlist object ---
-		List<Song> shuffledSongs = new ArrayList<>(songsToPlay); // Create mutable copy
-		Collections.shuffle(shuffledSongs); // Shuffle the copy
-		Playlist playlistToPlay = new Playlist(shuffledSongs.toArray(new Song[0])); // Create Playlist from shuffled list
-		// --- End Key Change ---
-		this.listening = Playlists.PLAYLIST; // Set listening type, maybe a new type later?
-		// Maybe store currentDirectoryPlaylistName here if needed
+
+		Song selectedSong = getSmartRandomSongFromDirectory(songsToPlay, directoryName);
+		if (selectedSong == null) {
+			JukeBox.sendMessage(getPlayer(), Lang.NO_SONG_AVAILABLE_IN_PLAYLIST.replace("{PLAYLIST}", directoryName));
+			return;
+		}
+
+		Playlist playlistToPlay = new Playlist(selectedSong);
+		this.listening = Playlists.PLAYLIST;
+
 		songPlayer = new CustomSongPlayer(playlistToPlay);
 		songPlayer.setParticlesEnabled(particles);
 		songPlayer.getFadeIn().setFadeDuration(JukeBox.fadeInDuration);
@@ -547,13 +554,89 @@ public class PlayerData implements Listener{
 		if (JukeBox.fadeOutDuration != 0) songPlayer.getFadeOut().setType(FadeType.LINEAR);
 		songPlayer.setAutoDestroy(true);
 		songPlayer.addPlayer(getPlayer());
-		// Keep setRandom(true) potentially for NoteBlockAPI internal logic if needed, main shuffle is done
-		songPlayer.setRandom(true);
-		songPlayer.setRepeatMode(repeat ? RepeatMode.ONE : RepeatMode.ALL);
-		songPlayer.setPlaying(true); // Start playback
+		songPlayer.setRepeatMode(repeat ? RepeatMode.ONE : RepeatMode.NO);
+		songPlayer.setPlaying(true);
+
 		if (JukeBox.getInstance().stopVanillaMusic != null) JukeBox.getInstance().stopVanillaMusic.accept(p);
-		JukeBox.sendMessage(getPlayer(), Lang.NOW_PLAYING_RANDOM_FROM.replace("{PLAYLIST}", directoryName));
-		if (linked != null) linked.playingStarted(); // Update GUI state if open
+		JukeBox.sendMessage(getPlayer(), Lang.NOW_PLAYING_SONG_FROM
+				.replace("{SONG}", JukeBox.getSongName(selectedSong))
+				.replace("{PLAYLIST}", directoryName));
+
+		if (linked != null) linked.playingStarted();
+	}
+
+	// Added: Helper method for smart random song selection
+	private Song getSmartRandomSongFromDirectory(List<Song> songsInDirectory, String directoryName) {
+		if (songsInDirectory == null || songsInDirectory.isEmpty()) {
+			return null;
+		}
+
+		// Get or initialize the tracker for this directory
+		Map<Song, Long> specificPlaylistTracker = recentlyPlayedTracker.computeIfAbsent(directoryName, k -> new HashMap<>());
+		long currentTime = System.currentTimeMillis();
+
+		// Clean up expired entries
+		specificPlaylistTracker.entrySet().removeIf(entry -> (currentTime - entry.getValue()) > RECENTLY_PLAYED_EXPIRY_MS);
+
+		// Check if tracker is too full and needs reset
+		if (specificPlaylistTracker.size() / (double) songsInDirectory.size() >= RECENTLY_PLAYED_FULL_THRESHOLD) {
+			specificPlaylistTracker.clear();
+		}
+
+		// Create list of available songs (not in tracker)
+		List<Song> availableSongs = new ArrayList<>();
+		for (Song song : songsInDirectory) {
+			if (!specificPlaylistTracker.containsKey(song)) {
+				availableSongs.add(song);
+			}
+		}
+
+		// If no songs available, clear tracker and use all songs
+		if (availableSongs.isEmpty()) {
+			specificPlaylistTracker.clear();
+			availableSongs.addAll(songsInDirectory);
+		}
+
+		// Select a random song
+		if (!availableSongs.isEmpty()) {
+			Song selectedSong = availableSongs.get(new Random().nextInt(availableSongs.size()));
+			specificPlaylistTracker.put(selectedSong, currentTime);
+			return selectedSong;
+		}
+
+		return null;
+	}
+
+	// Added: Method for admin-triggered random play
+	public boolean playRandomSongFromDirectoryForAdmin(List<Song> songsInDirectory, String directoryName) {
+		Song selectedSong = getSmartRandomSongFromDirectory(songsInDirectory, directoryName);
+		if (selectedSong == null) {
+			return false;
+		}
+
+		stopPlaying(false);
+		Playlist playlistToPlay = new Playlist(selectedSong);
+		this.listening = Playlists.PLAYLIST;
+
+		songPlayer = new CustomSongPlayer(playlistToPlay);
+		songPlayer.setParticlesEnabled(particles);
+		songPlayer.getFadeIn().setFadeDuration(JukeBox.fadeInDuration);
+		if (JukeBox.fadeInDuration != 0) songPlayer.getFadeIn().setType(FadeType.LINEAR);
+		songPlayer.getFadeOut().setFadeDuration(JukeBox.fadeOutDuration);
+		if (JukeBox.fadeOutDuration != 0) songPlayer.getFadeOut().setType(FadeType.LINEAR);
+		songPlayer.setAutoDestroy(true);
+		songPlayer.addPlayer(getPlayer());
+		songPlayer.setRepeatMode(RepeatMode.NO); // Admin play should not repeat
+		songPlayer.adminPlayed = true; // Directly set the field
+		songPlayer.setPlaying(true);
+
+		if (JukeBox.getInstance().stopVanillaMusic != null) JukeBox.getInstance().stopVanillaMusic.accept(p);
+		JukeBox.sendMessage(getPlayer(), Lang.ADMIN_PLAYING_SONG_FROM
+				.replace("{SONG}", JukeBox.getSongName(selectedSong))
+				.replace("{PLAYLIST}", directoryName));
+
+		if (linked != null) linked.playingStarted();
+		return true;
 	}
 
 }
